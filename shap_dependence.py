@@ -1,11 +1,14 @@
 """
 shap_dependence.py
-SHAP Dependence Plots — model_02 best_salary_pipeline.joblib kullanır.
+SHAP Dependence Plots — model_03 best_salary_model_03_advanced_progress.joblib kullanır.
 
-Çalıştırmadan önce model_02_pipeline_v3_cv_safe.py'nin tamamlanmış olması
-ve models/best_salary_pipeline.joblib dosyasının oluşturulmuş olması gerekir.
+Çalıştırmadan önce:
+  1. model_03_salary_advanced_progress.py tamamlanmış olmalı
+  2. prepare_shap_data.py çalıştırılmış olmalı (models/shap_X.parquet vb.)
 """
 import os
+import re
+import json
 import warnings
 import joblib
 import numpy as np
@@ -15,133 +18,184 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import shap
+import scipy.sparse as sp
 from pathlib import Path
+from sklearn.base import BaseEstimator, TransformerMixin
 
 warnings.filterwarnings("ignore")
+
+# =============================================================================
+# MODEL_03'TEN KOPYALANAN CUSTOM TRANSFORMERS
+# joblib.load() bu sınıfları __main__'de arar — burada tanımlı olmalı.
+# =============================================================================
+class LogTransformer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        arr = np.asarray(X, dtype=float)
+        arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+        return np.log1p(np.maximum(arr, 0))
+
+
+class MedianTargetEncoder(BaseEstimator, TransformerMixin):
+    """CV-safe target encoder — model_03 ile aynı implementasyon."""
+    def __init__(self, cols=None, smoothing=40.0, min_samples_leaf=8):
+        self.cols = cols or []
+        self.smoothing = smoothing
+        self.min_samples_leaf = min_samples_leaf
+
+    def fit(self, X, y):
+        X_df = pd.DataFrame(X).copy()
+        y_arr = np.asarray(y, dtype=float)
+        self.global_ = float(np.nanmedian(y_arr))
+        self.maps_ = {}
+        for col in self.cols:
+            if col not in X_df.columns:
+                continue
+            temp = pd.DataFrame({col: X_df[col].fillna("Unknown").astype(str), "_target": y_arr})
+            stats = temp.groupby(col)["_target"].agg(["median", "count"])
+            weight = stats["count"] / (stats["count"] + self.smoothing)
+            encoded = weight * stats["median"] + (1.0 - weight) * self.global_
+            encoded = encoded.where(stats["count"] >= self.min_samples_leaf, self.global_)
+            self.maps_[col] = encoded.to_dict()
+        return self
+
+    def transform(self, X):
+        X_df = pd.DataFrame(X).copy()
+        for col in self.cols:
+            new_col = f"te_{col}"
+            if col not in X_df.columns or col not in self.maps_:
+                X_df[new_col] = self.global_
+                continue
+            X_df[new_col] = (
+                X_df[col].fillna("Unknown").astype(str)
+                .map(self.maps_[col]).fillna(self.global_).astype(float)
+            )
+        return X_df
+
 
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
 MODELS_PATH = "models/"
-SAMPLE_SIZE = 100_000
 RANDOM_SEED = 42
 SHAP_SAMPLE = 2_000
+
+# model_03 config ile eşleşmeli
+TITLE_SVD_COMPONENTS = 25
+DESC_SVD_COMPONENTS  = 100
+
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # ── Model yükle ───────────────────────────────────────────────────────────────
-model_path = os.path.join(MODELS_PATH, "best_salary_pipeline.joblib")
+model_path = os.path.join(MODELS_PATH, "best_salary_model_03_advanced_progress.joblib")
 if not os.path.exists(model_path):
-    # model_03 varsa onu dene
-    model_path = os.path.join(MODELS_PATH, "best_salary_model_03_advanced_progress.joblib")
+    model_path = os.path.join(MODELS_PATH, "best_salary_pipeline.joblib")
 
 print(f"Model yükleniyor: {model_path}")
 obj = joblib.load(model_path)
 
-# Pipeline veya dict olabilir
 if isinstance(obj, dict):
-    pipeline    = obj.get("pipeline") or obj.get("model")
-    feature_cols= obj.get("feature_cols", [])
-    metrics     = obj.get("metrics", {})
-else:
-    pipeline     = obj
-    feature_cols = []
-    metrics      = {}
+    metrics = obj.get("metrics", {})
 
-print(f"Model tipi: {type(pipeline)}")
-if metrics:
+    # ── Metrics düzgün yazdır ─────────────────────────────────────────────────
+    print("\nModel metrikleri:")
     for k, v in metrics.items():
-        print(f"  {k}: {v:.4f}")
+        if k == "weights" and isinstance(v, dict):
+            # Ensemble ağırlıkları — her model için ayrı satır
+            print(f"  Ensemble weights:")
+            for model_name, w in v.items():
+                print(f"    {model_name}: {w:.3f}")
+        elif isinstance(v, float):
+            if k in ("rmse", "mae"):
+                print(f"  {k}: ${v:,.0f}")
+            else:
+                print(f"  {k}: {v:.4f}")
+        # dict olmayan diğer tipler sessizce geç
 
-# ── Veri yükle ve feature engineering (model_02 ile aynı logic) ───────────────
-# Model_02'nin feature_cols'unu kullanarak X'i rebuild ediyoruz.
-# Bunun için postings'i yeniden yükleyip pipeline'ı transform ediyoruz.
-postings = pd.read_csv(
-    os.path.join(DATA_PATH, "postings.csv"),
-    low_memory=False
-).sample(n=SAMPLE_SIZE, random_state=RANDOM_SEED).reset_index(drop=True)
-
-companies      = pd.read_csv(os.path.join(DATA_PATH, "companies.csv"))
-job_skills     = pd.read_csv(os.path.join(DATA_PATH, "job_skills.csv"))
-skills_ref     = pd.read_csv(os.path.join(DATA_PATH, "skills.csv"))
-job_industries = pd.read_csv(os.path.join(DATA_PATH, "job_industries.csv"))
-industries     = pd.read_csv(os.path.join(DATA_PATH, "industries.csv"))
-benefits       = pd.read_csv(os.path.join(DATA_PATH, "benefits.csv"))
-
-print("Veriler yüklendi.")
-
-# feature_cols varsa pipeline'a X besle
-if feature_cols:
-    postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
-    postings["formatted_experience_level"] = postings["formatted_experience_level"].fillna("Unknown")
-    postings.loc[postings["normalized_salary"] < 10_000,    "normalized_salary"] = None
-    postings.loc[postings["normalized_salary"] > 1_000_000, "normalized_salary"] = None
-
-    # Maaş verisi olan ilanlar
-    sal_df = postings[postings["normalized_salary"].notna()].copy()
-
-    # feature_cols içindeki sütunları hazırla
-    for col in feature_cols:
-        if col not in sal_df.columns:
-            sal_df[col] = 0
-
-    X_raw = sal_df[feature_cols].copy()
-    y_log = np.log1p(sal_df["normalized_salary"].values)
-
-    # Pipeline'dan preprocessor'ı al
-    if hasattr(pipeline, "named_steps") and "preprocessor" in pipeline.named_steps:
-        preprocessor = pipeline.named_steps["preprocessor"]
-        model_step   = pipeline.named_steps.get("model") or list(pipeline.named_steps.values())[-1]
+    if obj.get("type") == "ensemble":
+        pipelines = obj.get("pipelines", {})
+        pipeline  = pipelines.get("LightGBM") or list(pipelines.values())[0]
+        print(f"\nEnsemble modeli — SHAP için kullanılan: LightGBM pipeline")
     else:
-        print("Pipeline adımları bulunamadı. Ham X kullanılıyor.")
-        preprocessor = None
-        model_step   = pipeline
-
-    # Sample
-    idx = np.random.RandomState(RANDOM_SEED).choice(len(X_raw), size=min(SHAP_SAMPLE, len(X_raw)), replace=False)
-    X_sample_raw = X_raw.iloc[idx]
-
-    if preprocessor is not None:
-        try:
-            X_transformed = preprocessor.transform(X_sample_raw)
-            print(f"Transformed shape: {X_transformed.shape}")
-        except Exception as e:
-            print(f"Transform hatası: {e}")
-            X_transformed = X_sample_raw.values
-    else:
-        X_transformed = X_sample_raw.values
-
-    # SHAP hesapla
-    print(f"\nSHAP değerleri hesaplanıyor ({SHAP_SAMPLE} örnek)...")
-    try:
-        explainer  = shap.TreeExplainer(model_step)
-        shap_values= explainer.shap_values(X_transformed)
-        print("SHAP tamamlandı.")
-
-        # Feature isimleri
-        if preprocessor is not None and hasattr(preprocessor, "get_feature_names_out"):
-            try:
-                feat_names = preprocessor.get_feature_names_out()
-            except:
-                feat_names = [f"f{i}" for i in range(X_transformed.shape[1])]
-        else:
-            feat_names = feature_cols[:X_transformed.shape[1]] if feature_cols else [f"f{i}" for i in range(X_transformed.shape[1])]
-
-        shap_df = pd.DataFrame(np.abs(shap_values), columns=feat_names)
-        top_features = shap_df.mean().sort_values(ascending=False).head(10).index.tolist()
-        print(f"Top 10 feature: {top_features[:5]}...")
-
-    except Exception as e:
-        print(f"SHAP TreeExplainer hatası: {e}")
-        print("KernelExplainer deneniyor (yavaş)...")
-        explainer   = shap.KernelExplainer(model_step.predict, X_transformed[:100])
-        shap_values = explainer.shap_values(X_transformed[:200])
-        feat_names  = feature_cols[:X_transformed.shape[1]]
-        shap_df     = pd.DataFrame(np.abs(shap_values), columns=feat_names)
-        top_features= shap_df.mean().sort_values(ascending=False).head(10).index.tolist()
-
+        pipeline = obj.get("pipeline") or obj.get("model")
 else:
-    print("feature_cols bulunamadı. Lütfen model_02 veya model_03'ün çıktısını kontrol edin.")
+    pipeline = obj
+    metrics  = {}
+
+print(f"Pipeline tipi: {type(pipeline)}")
+
+# ── X ve feature_cols: prepare_shap_data.py çıktısından yükle ─────────────────
+x_parquet = os.path.join(MODELS_PATH, "shap_X.parquet")
+fc_json   = os.path.join(MODELS_PATH, "shap_feature_cols.json")
+y_npy     = os.path.join(MODELS_PATH, "shap_y.npy")
+
+if not os.path.exists(x_parquet):
+    print("\n  HATA: models/shap_X.parquet bulunamadı.")
+    print("  Önce prepare_shap_data.py'yi çalıştırın (~2-3 dk):")
+    print("    python prepare_shap_data.py")
     exit(1)
+
+print(f"\nFeature matrix yükleniyor: {x_parquet}")
+X_full = pd.read_parquet(x_parquet)
+
+with open(fc_json) as f:
+    raw_feature_cols = json.load(f)   # 122 girdi kolonu
+
+y_log_full = np.load(y_npy)
+print(f"X shape: {X_full.shape}  |  raw feature_cols: {len(raw_feature_cols)}")
+
+# ── Sample + transform ────────────────────────────────────────────────────────
+rng     = np.random.RandomState(RANDOM_SEED)
+idx     = rng.choice(len(X_full), size=min(SHAP_SAMPLE, len(X_full)), replace=False)
+X_sample = X_full.iloc[idx].copy()
+
+print(f"\nPipeline transform uygulanıyor ({len(X_sample)} örnek)...")
+try:
+    X_transformed = pipeline[:-1].transform(X_sample)
+    if sp.issparse(X_transformed):
+        X_transformed = X_transformed.toarray()
+    X_transformed = np.array(X_transformed, dtype=float)
+    print(f"Transformed shape: {X_transformed.shape}")
+except Exception as e:
+    print(f"Transform hatası: {e}")
+    exit(1)
+
+# ── Feature isimleri (gerçek isimler) ─────────────────────────────────────────
+# Preprocessor 122 girdi → N çıktı üretir.
+# Sıra: raw_cols (cat+te+log_num+num+bin+skill+benefit+spec) → title_svd_0..24 → desc_svd_0..99
+n_out       = X_transformed.shape[1]
+n_raw       = len(raw_feature_cols)
+n_title_svd = TITLE_SVD_COMPONENTS   # 25
+n_desc_svd  = DESC_SVD_COMPONENTS    # 100
+
+# SVD sütunlarını oluştur
+title_svd_names = [f"title_svd_{i}" for i in range(n_title_svd)]
+desc_svd_names  = [f"desc_svd_{i}"  for i in range(n_desc_svd)]
+
+# Tam isim listesi — transformed boyutuna kırp
+all_feat_names = raw_feature_cols + title_svd_names + desc_svd_names
+feat_names     = all_feat_names[:n_out]
+
+# Eksik kalırsa generic isimle doldur
+if len(feat_names) < n_out:
+    feat_names += [f"f{i}" for i in range(len(feat_names), n_out)]
+
+print(f"Feature names: {len(feat_names)} (ilk 5: {feat_names[:5]})")
+
+# ── Model adımı ───────────────────────────────────────────────────────────────
+model_step = pipeline[-1]
+
+# ── SHAP hesapla ──────────────────────────────────────────────────────────────
+print(f"\nSHAP değerleri hesaplanıyor ({len(X_sample)} örnek)...")
+explainer   = shap.TreeExplainer(model_step)
+shap_values = explainer.shap_values(X_transformed)
+print("SHAP tamamlandı.")
+
+shap_df      = pd.DataFrame(np.abs(shap_values), columns=feat_names)
+top_features = shap_df.mean().sort_values(ascending=False).head(10).index.tolist()
+print(f"Top 5 feature: {top_features[:5]}")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 1 — SHAP Summary Plot (Beeswarm)
@@ -193,10 +247,11 @@ for plot_num, feat in enumerate(top_features[:4], start=3):
     if feat not in feat_idx_map:
         continue
     fidx = feat_idx_map[feat]
-    print(f"Grafik {plot_num+62}: SHAP Dependence — {feat}...")
+    print(f"Grafik {plot_num + 62}: SHAP Dependence — {feat}...")
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    feat_vals = X_transformed[:, fidx] if hasattr(X_transformed, "__getitem__") else X_transformed.toarray()[:, fidx]
+    arr       = X_transformed.toarray() if sp.issparse(X_transformed) else np.array(X_transformed)
+    feat_vals = arr[:, fidx]
     shap_vals = shap_values[:, fidx]
 
     sc = ax.scatter(feat_vals, shap_vals, c=shap_vals, cmap="coolwarm",
@@ -204,14 +259,13 @@ for plot_num, feat in enumerate(top_features[:4], start=3):
     plt.colorbar(sc, ax=ax, label="SHAP Değeri")
     ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
 
-    # Trend çizgisi
     try:
-        z = np.polyfit(feat_vals, shap_vals, 1)
-        p = np.poly1d(z)
+        z      = np.polyfit(feat_vals, shap_vals, 1)
+        p      = np.poly1d(z)
         x_line = np.linspace(feat_vals.min(), feat_vals.max(), 100)
         ax.plot(x_line, p(x_line), color="#1F4E79", linewidth=2, label="Trend")
         ax.legend(fontsize=9)
-    except:
+    except Exception:
         pass
 
     ax.set_xlabel(feat, fontsize=10)
@@ -219,7 +273,8 @@ for plot_num, feat in enumerate(top_features[:4], start=3):
     ax.set_title(f"SHAP Dependence Plot — {feat}",
                  fontsize=13, fontweight="bold", pad=12)
     plt.tight_layout()
-    out_name = f"{62+plot_num}_shap_dependence_{feat[:30].replace('/', '_').replace(' ', '_')}.png"
+    safe_name = re.sub(r"[^\w]", "_", feat[:35])
+    out_name  = f"{62 + plot_num}_shap_dependence_{safe_name}.png"
     plt.savefig(os.path.join(OUTPUT_PATH, out_name), dpi=150)
     plt.close()
     print(f"{out_name} kaydedildi.")

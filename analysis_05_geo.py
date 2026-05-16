@@ -3,30 +3,37 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import seaborn as sns
 import os
+from utils_progress import ProgressBar, StepTracker
 
 # ── AYARLAR ───────────────────────────────────────────────────────────────────
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
-# SAMPLE_SIZE = 100_000  # tüm veri kullanılıyor
-RANDOM_SEED = 42  # clustering/shuffle için kullanılıyor
+RANDOM_SEED = 42
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
-# ── VERİ YÜKLEME ──────────────────────────────────────────────────────────────
+tracker = StepTracker(total_steps=7, script_name="analysis_05_geo.py — Geographic Analysis")
+
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=4, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id", "location", "remote_allowed", "normalized_salary",
              "formatted_experience_level", "formatted_work_type"],
     low_memory=False
 ).reset_index(drop=True)
+_bar.step("postings.csv")
 
 companies      = pd.read_csv(os.path.join(DATA_PATH, "companies.csv"),
                              usecols=["company_id", "name", "company_size", "state", "city"])
+_bar.step("companies.csv")
 job_industries = pd.read_csv(os.path.join(DATA_PATH, "job_industries.csv"))
+_bar.step("job_industries.csv")
 industries     = pd.read_csv(os.path.join(DATA_PATH, "industries.csv"))
+_bar.step("industries.csv")
 
 # Temizleme
 postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
@@ -41,9 +48,14 @@ sample_ids   = set(postings["job_id"])
 job_ind_f    = job_industries[job_industries["job_id"].isin(sample_ids)]
 job_ind_full = job_ind_f.merge(industries, on="industry_id", how="left")
 
-print("Veri hazır.\n")
+_bar.finish()
+tracker.done(1)
+
+tracker.start(2, "Cleaning & joins")
+tracker.done(2)
 
 # ══════════════════════════════════════════════════════════════════════════════
+tracker.start(3, "Plot 1 — State median salary")
 # GRAFİK 1 — Eyalet bazında medyan maaş (top 20)
 # ══════════════════════════════════════════════════════════════════════════════
 state_salary = (postings[postings["normalized_salary"].notna() &
@@ -68,7 +80,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "22_state_median_salary.png"), dpi=150)
 plt.close()
 print("22_state_median_salary.png kaydedildi.")
+tracker.done(3)
 
+tracker.start(4, "Plot 2 — State remote rate")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 2 — Eyalet bazında remote oran (top 20 ilan sayısına göre)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -90,7 +104,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "23_state_remote_rate.png"), dpi=150)
 plt.close()
 print("23_state_remote_rate.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 3 — Top cities")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 3 — Top 15 şehir ilan sayısı
 # ══════════════════════════════════════════════════════════════════════════════
@@ -107,7 +123,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "24_top_cities.png"), dpi=150)
 plt.close()
 print("24_top_cities.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 4 — State × Industry heatmap")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 4 — Eyalet × Sektör yoğunluk haritası (top 10 eyalet, top 8 sektör)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -137,7 +155,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "25_state_industry_heatmap.png"), dpi=150)
 plt.close()
 print("25_state_industry_heatmap.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 5 — State experience distribution")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 5 — Eyalet bazında deneyim seviyesi dağılımı (top 8 eyalet)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -166,5 +186,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "26_state_experience.png"), dpi=150)
 plt.close()
 print("26_state_experience.png kaydedildi.")
+tracker.done(7)
+tracker.finish()
 
 print("\nTüm coğrafi analiz grafikleri outputs/ klasörüne kaydedildi.")

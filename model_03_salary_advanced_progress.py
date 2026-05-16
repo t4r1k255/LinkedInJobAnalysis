@@ -98,11 +98,12 @@ RUN_YEARLY_ONLY = False
 
 # İlk çalıştırmada düşük kalsın. Çalışınca 20/30/50 yapılabilir.
 N_TRIALS = 30
+N_TRIALS_CATBOOST = 15   # CatBoost için ayrı trial sayısı — daha yavaş model
 
 N_TUNE_FOLDS = 2
 N_FINAL_FOLDS = 5
 
-MODEL_NAMES = ["LightGBM", "XGBoost"]
+MODEL_NAMES = ["LightGBM", "XGBoost", "CatBoost"]
 
 USE_TITLE_TEXT_FEATURES = True
 USE_DESCRIPTION_TEXT_FEATURES = True
@@ -972,14 +973,18 @@ def build_model(model_name, params=None):
 
     if model_name == "CatBoost":
         defaults = dict(
-            iterations=800,
+            iterations=700,
             learning_rate=0.045,
             depth=7,
             l2_leaf_reg=3,
             subsample=0.85,
+            bootstrap_type="Bernoulli",   # Bayesian yerine — belirgin şekilde hızlı
+            grow_policy="Depthwise",       # Symmetric yerine — daha hızlı büyüme
+            random_strength=1.0,
             random_seed=RANDOM_STATE,
             verbose=0,
             allow_writing_files=False,
+            thread_count=-1,
         )
         defaults.update(params)
         return CatBoostRegressor(**defaults)
@@ -1132,12 +1137,16 @@ def suggest_params(trial, model_name):
 
     if model_name == "CatBoost":
         return dict(
-            iterations=trial.suggest_int("iterations", 500, 1200),
-            depth=trial.suggest_int("depth", 5, 10),
-            learning_rate=trial.suggest_float("learning_rate", 0.015, 0.09, log=True),
+            iterations=trial.suggest_int("iterations", 400, 700),   # Max düşürüldü
+            depth=trial.suggest_int("depth", 5, 8),                  # 10→8, simetrik ağaçta derin = yavaş
+            learning_rate=trial.suggest_float("learning_rate", 0.02, 0.09, log=True),
             subsample=trial.suggest_float("subsample", 0.70, 1.0),
             l2_leaf_reg=trial.suggest_float("l2_leaf_reg", 1.0, 10.0, log=True),
-            random_strength=trial.suggest_float("random_strength", 0.5, 5.0),
+            random_strength=trial.suggest_float("random_strength", 0.5, 3.0),
+            bootstrap_type="Bernoulli",    # Her trial'da sabit — hız için
+            grow_policy="Depthwise",       # Her trial'da sabit — hız için
+            allow_writing_files=False,
+            thread_count=-1,
         )
 
     raise ValueError(model_name)
@@ -1167,11 +1176,12 @@ def tune_model(model_name, X, y_log, skill_cols, benefit_cols, speciality_cols):
 
         return float(np.mean(scores))
 
+    n_trials = N_TRIALS_CATBOOST if model_name == "CatBoost" else N_TRIALS
     study = optuna.create_study(
         direction="minimize",
         sampler=optuna.samplers.TPESampler(seed=RANDOM_STATE),
     )
-    study.optimize(objective, n_trials=N_TRIALS, show_progress_bar=True)
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
     return study
 
@@ -1319,7 +1329,8 @@ if __name__ == "__main__":
     print("  model_03_salary_advanced.py — Advanced Salary Prediction")
     print("=" * 82)
     print(f"  RUN_YEARLY_ONLY = {RUN_YEARLY_ONLY}")
-    print(f"  N_TRIALS = {N_TRIALS}")
+    print(f"  N_TRIALS (LGB/XGB) = {N_TRIALS}")
+    print(f"  N_TRIALS (CatBoost) = {N_TRIALS_CATBOOST}")
     print(f"  Title TF-IDF/SVD = {USE_TITLE_TEXT_FEATURES}")
     print(f"  Description TF-IDF/SVD = {USE_DESCRIPTION_TEXT_FEATURES}")
     print(f"  Title clustering = {USE_TITLE_CLUSTER}")
@@ -1351,7 +1362,7 @@ if __name__ == "__main__":
     log_duration(_t0, "Baseline CV")
 
     print("\n" + "-" * 82)
-    print(f"OPTUNA TUNING ({N_TRIALS} trials × {len(MODEL_NAMES)} models × {N_TUNE_FOLDS}-fold CV)")
+    print(f"OPTUNA TUNING (LGB/XGB: {N_TRIALS} trials | CatBoost: {N_TRIALS_CATBOOST} trials | {N_TUNE_FOLDS}-fold CV)")
     print("-" * 82)
 
     studies = {}

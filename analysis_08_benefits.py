@@ -3,29 +3,38 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import seaborn as sns
 import os
+from utils_progress import ProgressBar, StepTracker
 
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
-# SAMPLE_SIZE = 100_000  # tüm veri kullanılıyor
-RANDOM_SEED = 42  # clustering/shuffle için kullanılıyor
+RANDOM_SEED = 42
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
+tracker = StepTracker(total_steps=7, script_name="analysis_08_benefits.py — Benefits Analysis")
+
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=5, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id", "company_id", "normalized_salary",
              "formatted_experience_level", "remote_allowed"],
     low_memory=False
 ).reset_index(drop=True)
+_bar.step("postings.csv")
 
 benefits       = pd.read_csv(os.path.join(DATA_PATH, "benefits.csv"))
+_bar.step("benefits.csv")
 companies      = pd.read_csv(os.path.join(DATA_PATH, "companies.csv"),
                              usecols=["company_id", "company_size"])
+_bar.step("companies.csv")
 job_industries = pd.read_csv(os.path.join(DATA_PATH, "job_industries.csv"))
+_bar.step("job_industries.csv")
 industries     = pd.read_csv(os.path.join(DATA_PATH, "industries.csv"))
+_bar.step("industries.csv")
 
 postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
 postings["formatted_experience_level"] = postings["formatted_experience_level"].fillna("Unknown")
@@ -42,10 +51,17 @@ benefits_f   = benefits[benefits["job_id"].isin(sample_ids)].copy()
 job_ind_f    = job_industries[job_industries["job_id"].isin(sample_ids)]
 job_ind_full = job_ind_f.merge(industries, on="industry_id", how="left")
 
+_bar.finish()
+tracker.done(1)
+
+tracker.start(2, "Cleaning & merging")
+tracker.done(2)
+
 print(f"Benefits verisi: {len(benefits_f):,} kayit")
 print(f"Benzersiz benefit turu: {benefits_f['type'].nunique()}")
 print(f"\nTop 20 benefit:\n{benefits_f['type'].value_counts().head(20).to_string()}\n")
 
+tracker.start(3, "Plot 1 — Top 20 benefits")
 # GRAFİK 1
 top_benefits = benefits_f["type"].value_counts().head(20)
 fig, ax = plt.subplots(figsize=(11, 7))
@@ -59,7 +75,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "37_top_benefits.png"), dpi=150)
 plt.close()
 print("37_top_benefits.png kaydedildi.")
+tracker.done(3)
 
+tracker.start(4, "Plot 2 — Benefits by company size")
 # GRAFİK 2
 size_order  = ["1-10","11-50","51-200","201-500","501-1K","1K-5K","5K-10K","10K+"]
 ben_per_job = benefits_f.groupby("job_id").size().reset_index(name="benefit_count")
@@ -79,7 +97,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "38_benefits_by_company_size.png"), dpi=150)
 plt.close()
 print("38_benefits_by_company_size.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 3 — Benefits by industry")
 # GRAFİK 3
 top5_ind  = job_ind_full["industry_name"].value_counts().head(5).index.tolist()
 top10_ben = benefits_f["type"].value_counts().head(10).index.tolist()
@@ -100,7 +120,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "39_benefits_by_industry.png"), dpi=150)
 plt.close()
 print("39_benefits_by_industry.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 4 — Benefit count vs salary")
 # GRAFİK 4
 ben_sal = (ben_per_job
            .merge(postings[["job_id","normalized_salary"]], on="job_id", how="left")
@@ -124,7 +146,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "40_benefit_count_salary.png"), dpi=150)
 plt.close()
 print("40_benefit_count_salary.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 5 — Benefits by experience")
 # GRAFİK 5
 exp_order = ["Entry level", "Associate", "Mid-Senior level", "Director", "Executive"]
 top8_ben  = benefits_f["type"].value_counts().head(8).index.tolist()
@@ -145,5 +169,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "41_benefits_by_experience.png"), dpi=150)
 plt.close()
 print("41_benefits_by_experience.png kaydedildi.")
+tracker.done(7)
+tracker.finish()
 
 print("\nTum benefit grafikleri outputs/ klasorune kaydedildi.")

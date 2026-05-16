@@ -3,32 +3,41 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import seaborn as sns
 import os
+from utils_progress import ProgressBar, StepTracker
 
 # ── AYARLAR ───────────────────────────────────────────────────────────────────
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
-# SAMPLE_SIZE = 100_000  # tüm veri kullanılıyor
-RANDOM_SEED = 42  # clustering/shuffle için kullanılıyor
+RANDOM_SEED = 42
 os.makedirs(OUTPUT_PATH, exist_ok=True)
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
-# ── VERİ YÜKLEME ──────────────────────────────────────────────────────────────
+tracker = StepTracker(total_steps=7, script_name="analysis_02_skills.py — Skill Demand")
+
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=5, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id", "formatted_experience_level", "normalized_salary"],
     low_memory=False
 ).reset_index(drop=True)
+_bar.step("postings.csv")
 
 postings["formatted_experience_level"] = postings["formatted_experience_level"].fillna("Unknown")
 postings.loc[postings["normalized_salary"] < 10_000,    "normalized_salary"] = None
 postings.loc[postings["normalized_salary"] > 1_000_000, "normalized_salary"] = None
 
 job_skills     = pd.read_csv(os.path.join(DATA_PATH, "job_skills.csv"))
+_bar.step("job_skills.csv")
 skills         = pd.read_csv(os.path.join(DATA_PATH, "skills.csv"))
+_bar.step("skills.csv")
 job_industries = pd.read_csv(os.path.join(DATA_PATH, "job_industries.csv"))
+_bar.step("job_industries.csv")
 industries     = pd.read_csv(os.path.join(DATA_PATH, "industries.csv"))
+_bar.step("industries.csv")
 
 # Sample'daki job_id'lerle filtrele
 sample_ids = set(postings["job_id"])
@@ -38,9 +47,16 @@ job_skills_full = job_skills_f.merge(skills, on="skill_abr", how="left")
 job_ind_f = job_industries[job_industries["job_id"].isin(sample_ids)]
 job_ind_full = job_ind_f.merge(industries, on="industry_id", how="left")
 
-print("Veri hazır.\n")
+_bar.finish()
+tracker.done(1)
+
+tracker.start(2, "Filtering & joining skill/industry data")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
+tracker.done(2)
+
+tracker.start(3, "Plot 1 — Top 20 skills")
 # GRAFİK 1 — En çok istenen 20 skill
 # ══════════════════════════════════════════════════════════════════════════════
 top_skills = job_skills_full["skill_name"].value_counts().head(20)
@@ -56,7 +72,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "07_top_20_skills.png"), dpi=150)
 plt.close()
 print("07_top_20_skills.png kaydedildi.")
+tracker.done(3)
 
+tracker.start(4, "Plot 2 — Top industries")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 2 — En çok ilan veren 15 sektör
 # ══════════════════════════════════════════════════════════════════════════════
@@ -73,7 +91,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "08_top_industries.png"), dpi=150)
 plt.close()
 print("08_top_industries.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 3 — Skill by experience heatmap")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 3 — Deneyim seviyesine göre en popüler 10 skill (ısı haritası)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -108,7 +128,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "09_skill_by_experience_heatmap.png"), dpi=150)
 plt.close()
 print("09_skill_by_experience_heatmap.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 4 — Top paying skills")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 4 — Maaşla en çok ilişkili 15 skill (medyan maaş)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -140,7 +162,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "10_top_paying_skills.png"), dpi=150)
 plt.close()
 print("10_top_paying_skills.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 5 — Skill by industry stacked")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 5 — Top 5 sektörde skill dağılımı (yığılmış bar)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -172,5 +196,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "11_skill_by_industry_stacked.png"), dpi=150)
 plt.close()
 print("11_skill_by_industry_stacked.png kaydedildi.")
+tracker.done(7)
+tracker.finish()
 
 print("\nTüm skill grafikleri outputs/ klasörüne kaydedildi.")

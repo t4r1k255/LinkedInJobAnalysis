@@ -8,3 +8,7 @@ lightgbm
 catboost
 optuna
 tqdm
+scipy
+parquet
+pyarrow
+streamlit

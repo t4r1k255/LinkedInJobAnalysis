@@ -4,11 +4,11 @@ import matplotlib.ticker as mticker
 import seaborn as sns
 import numpy as np
 import os
+from utils_progress import ProgressBar, StepTracker
 from scipy import stats
 
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
-SAMPLE_SIZE = 100_000
 RANDOM_SEED = 42
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -16,16 +16,24 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
+tracker = StepTracker(total_steps=7, script_name="analysis_09_skill_salary.py — Skill-Salary Analysis")
+
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=5, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id", "normalized_salary", "formatted_experience_level", "remote_allowed"],
     low_memory=False
-).sample(n=SAMPLE_SIZE, random_state=RANDOM_SEED).reset_index(drop=True)
-
+).reset_index(drop=True)
+_bar.step("postings.csv")
 job_skills     = pd.read_csv(os.path.join(DATA_PATH, "job_skills.csv"))
+_bar.step("job_skills.csv")
 skills         = pd.read_csv(os.path.join(DATA_PATH, "skills.csv"))
+_bar.step("skills.csv")
 job_industries = pd.read_csv(os.path.join(DATA_PATH, "job_industries.csv"))
+_bar.step("job_industries.csv")
 industries     = pd.read_csv(os.path.join(DATA_PATH, "industries.csv"))
+_bar.step("industries.csv")
 
 postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
 postings["formatted_experience_level"] = postings["formatted_experience_level"].fillna("Unknown")
@@ -42,10 +50,17 @@ job_ind_full    = job_ind_f.merge(industries, on="industry_id", how="left")
 sal_df = postings[postings["normalized_salary"].notna()].copy()
 skill_sal = job_skills_full.merge(sal_df[["job_id","normalized_salary"]], on="job_id", how="inner")
 
+_bar.finish()
+tracker.done(1)
+
+tracker.start(2, "Computing skill premiums (Mann-Whitney U)")
 print(f"Maaş verisi olan ilan: {len(sal_df):,}")
-print(f"Skill-maaş eşleşme: {len(skill_sal):,}\n")
+print(f"Skill-maaş eşleşme: {len(skill_sal):,}")
 
 # ══════════════════════════════════════════════════════════════════════════════
+tracker.done(2)
+
+tracker.start(3, "Plot 1 — Skill salary premium")
 # GRAFİK 1 — Skill premium: skill olan vs olmayan maaş farkı
 # ══════════════════════════════════════════════════════════════════════════════
 common_skills = job_skills_full["skill_name"].value_counts()
@@ -102,7 +117,9 @@ plt.savefig(os.path.join(OUTPUT_PATH, "42_skill_salary_premium.png"), dpi=150, b
 plt.close()
 print("42_skill_salary_premium.png kaydedildi.")
 print(f"İstatistiksel anlamlı skill sayısı: {len(premium_df)}")
+tracker.done(3)
 
+tracker.start(4, "Plot 2 — Skill salary boxplot")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 2 — Skill başına medyan maaş (boxplot, top 10)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -135,7 +152,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "43_skill_salary_boxplot.png"), dpi=150)
 plt.close()
 print("43_skill_salary_boxplot.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 3 — Experience × Skill heatmap")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 3 — Deneyim seviyesi × Skill kombinasyonu maaş analizi
 # ══════════════════════════════════════════════════════════════════════════════
@@ -164,7 +183,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "44_exp_skill_salary_heatmap.png"), dpi=150)
 plt.close()
 print("44_exp_skill_salary_heatmap.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 4 — Industry × Skill heatmap")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 4 — Sektör × Skill maaş matrisi
 # ══════════════════════════════════════════════════════════════════════════════
@@ -193,7 +214,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "45_industry_skill_salary_heatmap.png"), dpi=150)
 plt.close()
 print("45_industry_skill_salary_heatmap.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 5 — Skill count vs salary")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 5 — Skill kombinasyon sayısı vs maaş
 # ══════════════════════════════════════════════════════════════════════════════
@@ -233,5 +256,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "46_skill_count_salary.png"), dpi=150)
 plt.close()
 print("46_skill_count_salary.png kaydedildi.")
+tracker.done(7)
+tracker.finish()
 
 print("\nTüm skill-maaş grafikleri outputs/ klasörüne kaydedildi.")

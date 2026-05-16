@@ -3,28 +3,37 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import seaborn as sns
 import os
+from utils_progress import ProgressBar, StepTracker
 
 # ── AYARLAR ───────────────────────────────────────────────────────────────────
 DATA_PATH    = "data/"
 OUTPUT_PATH  = "outputs/"
-# SAMPLE_SIZE = 100_000  # tüm veri kullanılıyor
 RANDOM_SEED  = 42
 os.makedirs(OUTPUT_PATH, exist_ok=True)
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
+tracker = StepTracker(total_steps=8, script_name="analysis_01_market.py — Market Overview")
+
 # ── VERİ YÜKLEME VE TEMİZLEME ─────────────────────────────────────────────────
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=2, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id","company_id","title","location","remote_allowed",
              "formatted_experience_level","formatted_work_type","normalized_salary","listed_time"],
     low_memory=False
 ).reset_index(drop=True)
-
+_bar.step("postings.csv")
 companies = pd.read_csv(os.path.join(DATA_PATH, "companies.csv"),
                         usecols=["company_id","name","company_size"])
+_bar.step("companies.csv")
+_bar.finish()
+tracker.done(1)
 
+tracker.start(2, "Cleaning & merging")
 postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
 postings["formatted_experience_level"] = postings["formatted_experience_level"].fillna("Unknown")
 postings["listed_date"] = pd.to_datetime(postings["listed_time"], unit="ms", errors="coerce")
@@ -33,14 +42,12 @@ postings.loc[postings["normalized_salary"] < 10_000,  "normalized_salary"] = Non
 postings.loc[postings["normalized_salary"] > 1_000_000, "normalized_salary"] = None
 postings = postings.merge(companies.rename(columns={"name":"company_name"}),
                           on="company_id", how="left")
-
-# Şirket büyüklüğü etiketi
 size_map = {1:"1-10",2:"11-50",3:"51-200",4:"201-500",
             5:"501-1K",6:"1K-5K",7:"5K-10K",8:"10K+"}
 postings["company_size_label"] = postings["company_size"].map(size_map)
+tracker.done(2, f"{len(postings):,} rows ready")
 
-print("Veri hazır.\n")
-
+tracker.start(3, "Plot 1 — Experience distribution")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 1 — Deneyim seviyesine göre ilan sayısı
 # ══════════════════════════════════════════════════════════════════════════════
@@ -60,7 +67,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "01_experience_distribution.png"), dpi=150)
 plt.close()
 print("01_experience_distribution.png kaydedildi.")
+tracker.done(3)
 
+tracker.start(4, "Plot 2 — Work type distribution")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 2 — Çalışma tipine göre dağılım (pasta)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -83,7 +92,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "02_work_type_distribution.png"), dpi=150)
 plt.close()
 print("02_work_type_distribution.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 3 — Remote vs Office")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 3 — Remote vs Ofis
 # ══════════════════════════════════════════════════════════════════════════════
@@ -100,7 +111,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "03_remote_vs_office.png"), dpi=150)
 plt.close()
 print("03_remote_vs_office.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 4 — Top states")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 4 — En çok ilan veren 15 eyalet
 # ══════════════════════════════════════════════════════════════════════════════
@@ -118,7 +131,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "04_top_states.png"), dpi=150)
 plt.close()
 print("04_top_states.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 5 — Salary by experience")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 5 — Deneyim seviyesine göre medyan maaş
 # ══════════════════════════════════════════════════════════════════════════════
@@ -141,7 +156,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "05_salary_by_experience.png"), dpi=150)
 plt.close()
 print("05_salary_by_experience.png kaydedildi.")
+tracker.done(7)
 
+tracker.start(8, "Plot 6 — Remote rate by company size")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 6 — Şirket büyüklüğüne göre remote oran
 # ══════════════════════════════════════════════════════════════════════════════
@@ -163,5 +180,6 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "06_remote_by_company_size.png"), dpi=150)
 plt.close()
 print("06_remote_by_company_size.png kaydedildi.")
+tracker.done(8)
 
-print("\nTüm grafikler outputs/ klasörüne kaydedildi.")
+tracker.finish()

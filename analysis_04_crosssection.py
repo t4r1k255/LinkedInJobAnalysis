@@ -4,31 +4,40 @@ import matplotlib.ticker as mticker
 import seaborn as sns
 import numpy as np
 import os
+from utils_progress import ProgressBar, StepTracker
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # ── AYARLAR ───────────────────────────────────────────────────────────────────
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
-# SAMPLE_SIZE = 100_000  # tüm veri kullanılıyor
-RANDOM_SEED = 42  # clustering için hâlâ kullanılıyor
+RANDOM_SEED = 42
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
-# ── VERİ YÜKLEME ──────────────────────────────────────────────────────────────
+tracker = StepTracker(total_steps=7, script_name="analysis_04_crosssection.py — Cross-Section")
+
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=6, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id", "location", "remote_allowed", "normalized_salary",
              "formatted_experience_level", "formatted_work_type"],
     low_memory=False
 ).reset_index(drop=True)
+_bar.step("postings.csv")
 
 companies      = pd.read_csv(os.path.join(DATA_PATH, "companies.csv"),
                              usecols=["company_id", "name", "company_size"])
+_bar.step("companies.csv")
 job_industries = pd.read_csv(os.path.join(DATA_PATH, "job_industries.csv"))
+_bar.step("job_industries.csv")
 industries     = pd.read_csv(os.path.join(DATA_PATH, "industries.csv"))
+_bar.step("industries.csv")
 job_skills     = pd.read_csv(os.path.join(DATA_PATH, "job_skills.csv"))
+_bar.step("job_skills.csv")
 skills         = pd.read_csv(os.path.join(DATA_PATH, "skills.csv"))
+_bar.step("skills.csv")
 
 # Temizleme
 postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
@@ -49,9 +58,15 @@ job_ind_full    = job_ind_f.merge(industries, on="industry_id", how="left")
 job_skills_f    = job_skills[job_skills["job_id"].isin(sample_ids)]
 job_skills_full = job_skills_f.merge(skills, on="skill_abr", how="left")
 
-print("Veri hazır.\n")
+_bar.finish()
+tracker.done(1)
+
+tracker.start(2, "Cleaning, salary bands & joins")
+# cleaning...
+tracker.done(2)
 
 # ══════════════════════════════════════════════════════════════════════════════
+tracker.start(3, "Plot 1 — Salary band × Experience")
 # GRAFİK 1 — Maaş bandı × Deneyim seviyesi (ısı haritası)
 # ══════════════════════════════════════════════════════════════════════════════
 exp_order = ["Entry level", "Associate", "Mid-Senior level", "Director", "Executive"]
@@ -77,7 +92,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "17_salary_band_experience.png"), dpi=150)
 plt.close()
 print("17_salary_band_experience.png kaydedildi.")
+tracker.done(3)
 
+tracker.start(4, "Plot 2 — Sector × Salary band")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 2 — Sektör × Maaş bandı (ısı haritası, top 10 sektör)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -106,7 +123,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "18_salary_band_industry.png"), dpi=150)
 plt.close()
 print("18_salary_band_industry.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 3 — State bubble chart")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 3 — Eyalet × Remote oran + Medyan maaş (bubble chart)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -148,7 +167,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "19_state_remote_salary_bubble.png"), dpi=150)
 plt.close()
 print("19_state_remote_salary_bubble.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 4 — Work type × Experience")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 4 — Çalışma tipi × Deneyim seviyesi (yığılmış bar)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -177,7 +198,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "20_worktype_experience.png"), dpi=150)
 plt.close()
 print("20_worktype_experience.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 5 — Skill salary band heatmap")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 5 — Maaş bandına göre skill profili (ısı haritası)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -206,5 +229,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "21_skill_salary_band.png"), dpi=150)
 plt.close()
 print("21_skill_salary_band.png kaydedildi.")
+tracker.done(7)
+tracker.finish()
 
 print("\nTüm kesitsel analiz grafikleri outputs/ klasörüne kaydedildi.")

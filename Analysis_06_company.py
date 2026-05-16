@@ -3,31 +3,39 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import seaborn as sns
 import os
+from utils_progress import ProgressBar, StepTracker
 
 # ── AYARLAR ───────────────────────────────────────────────────────────────────
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
-# SAMPLE_SIZE = 100_000  # tüm veri kullanılıyor
-RANDOM_SEED = 42  # clustering/shuffle için kullanılıyor
+RANDOM_SEED = 42
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
-# ── VERİ YÜKLEME ──────────────────────────────────────────────────────────────
+tracker = StepTracker(total_steps=7, script_name="Analysis_06_company.py — Company Analysis")
+
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=5, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id", "company_id", "normalized_salary",
              "formatted_experience_level", "remote_allowed", "formatted_work_type"],
     low_memory=False
 ).reset_index(drop=True)
+_bar.step("postings.csv")
 
 companies      = pd.read_csv(os.path.join(DATA_PATH, "companies.csv"),
                              usecols=["company_id", "name", "company_size", "state"])
+_bar.step("companies.csv")
 job_industries = pd.read_csv(os.path.join(DATA_PATH, "job_industries.csv"))
+_bar.step("job_industries.csv")
 industries     = pd.read_csv(os.path.join(DATA_PATH, "industries.csv"))
+_bar.step("industries.csv")
 employee_counts= pd.read_csv(os.path.join(DATA_PATH, "employee_counts.csv"))
+_bar.step("employee_counts.csv")
 
 # Temizleme
 postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
@@ -47,9 +55,14 @@ sample_ids   = set(postings["job_id"])
 job_ind_f    = job_industries[job_industries["job_id"].isin(sample_ids)]
 job_ind_full = job_ind_f.merge(industries, on="industry_id", how="left")
 
-print("Veri hazır.\n")
+_bar.finish()
+tracker.done(1)
+
+tracker.start(2, "Cleaning & joins")
+tracker.done(2)
 
 # ══════════════════════════════════════════════════════════════════════════════
+tracker.start(3, "Plot 1 — Top hiring companies")
 # GRAFİK 1 — En çok ilan veren 15 şirket
 # ══════════════════════════════════════════════════════════════════════════════
 top_companies = (postings[postings["name"].notna()]
@@ -69,7 +82,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "27_top_companies.png"), dpi=150)
 plt.close()
 print("27_top_companies.png kaydedildi.")
+tracker.done(3)
 
+tracker.start(4, "Plot 2 — Salary by company size")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 2 — Şirket büyüklüğüne göre medyan maaş
 # ══════════════════════════════════════════════════════════════════════════════
@@ -96,7 +111,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "28_company_size_salary.png"), dpi=150)
 plt.close()
 print("28_company_size_salary.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 3 — Company size × Industry heatmap")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 3 — Şirket büyüklüğü × Sektör yoğunluk haritası
 # ══════════════════════════════════════════════════════════════════════════════
@@ -124,7 +141,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "29_company_size_industry.png"), dpi=150)
 plt.close()
 print("29_company_size_industry.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 4 — Top paying companies")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 4 — En yüksek medyan maaş ödeyen 15 şirket (min 20 ilan)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -150,7 +169,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "30_top_paying_companies.png"), dpi=150)
 plt.close()
 print("30_top_paying_companies.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 5 — Company size × Experience")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 5 — Şirket büyüklüğü × Deneyim seviyesi dağılımı
 # ══════════════════════════════════════════════════════════════════════════════
@@ -177,5 +198,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "31_company_size_experience.png"), dpi=150)
 plt.close()
 print("31_company_size_experience.png kaydedildi.")
+tracker.done(7)
+tracker.finish()
 
 print("\nTüm şirket analizi grafikleri outputs/ klasörüne kaydedildi.")

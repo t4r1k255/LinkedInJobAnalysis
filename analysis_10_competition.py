@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import seaborn as sns
 import os
+from utils_progress import ProgressBar, StepTracker
 
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
-SAMPLE_SIZE = 100_000
 RANDOM_SEED = 42
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -14,17 +14,25 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
+tracker = StepTracker(total_steps=7, script_name="analysis_10_competition.py — Competition Analysis")
+
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=5, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id", "title", "applies", "views", "normalized_salary",
              "formatted_experience_level", "remote_allowed", "location"],
     low_memory=False
-).sample(n=SAMPLE_SIZE, random_state=RANDOM_SEED).reset_index(drop=True)
-
+).reset_index(drop=True)
+_bar.step("postings.csv")
 job_industries = pd.read_csv(os.path.join(DATA_PATH, "job_industries.csv"))
+_bar.step("job_industries.csv")
 industries     = pd.read_csv(os.path.join(DATA_PATH, "industries.csv"))
+_bar.step("industries.csv")
 job_skills     = pd.read_csv(os.path.join(DATA_PATH, "job_skills.csv"))
+_bar.step("job_skills.csv")
 skills         = pd.read_csv(os.path.join(DATA_PATH, "skills.csv"))
+_bar.step("skills.csv")
 
 postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
 postings["formatted_experience_level"] = postings["formatted_experience_level"].fillna("Unknown")
@@ -47,9 +55,15 @@ comp_df["title_clean"] = comp_df["title"].str.lower().str.strip()
 print(f"Rekabet verisi olan ilan: {len(comp_df):,}")
 print(f"Ortalama applies: {comp_df['applies'].mean():.1f}")
 print(f"Ortalama views: {comp_df['views'].mean():.1f}")
-print(f"Ortalama rekabet skoru: {comp_df['competition_score'].mean():.3f}\n")
+_bar.finish()
+tracker.done(1)
+
+tracker.start(2, "Computing competition scores")
+print(f"Ortalama rekabet skoru: {comp_df['competition_score'].mean():.3f}")
+tracker.done(2)
 
 # ══════════════════════════════════════════════════════════════════════════════
+tracker.start(3, "Plot 1 — Most competitive titles")
 # GRAFİK 1 — En rekabetçi 15 iş unvanı (başvuru/görüntülenme)
 # ══════════════════════════════════════════════════════════════════════════════
 title_comp = (comp_df.groupby("title_clean")
@@ -71,7 +85,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "47_most_competitive_titles.png"), dpi=150)
 plt.close()
 print("47_most_competitive_titles.png kaydedildi.")
+tracker.done(3)
 
+tracker.start(4, "Plot 2 — Competition by industry")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 2 — Sektöre göre rekabet skoru
 # ══════════════════════════════════════════════════════════════════════════════
@@ -94,7 +110,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "48_competition_by_industry.png"), dpi=150)
 plt.close()
 print("48_competition_by_industry.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 3 — Competition by experience")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 3 — Deneyim seviyesine göre rekabet
 # ══════════════════════════════════════════════════════════════════════════════
@@ -118,7 +136,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "49_competition_by_experience.png"), dpi=150)
 plt.close()
 print("49_competition_by_experience.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 4 — Remote vs Office competition")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 4 — Remote vs ofis rekabet karşılaştırması
 # ══════════════════════════════════════════════════════════════════════════════
@@ -139,7 +159,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "50_competition_remote_vs_office.png"), dpi=150)
 plt.close()
 print("50_competition_remote_vs_office.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 5 — Low competition opportunities")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 5 — En az rekabetçi (fırsat) iş unvanları
 # ══════════════════════════════════════════════════════════════════════════════
@@ -177,5 +199,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "51_low_competition_opportunities.png"), dpi=150)
 plt.close()
 print("51_low_competition_opportunities.png kaydedildi.")
+tracker.done(7)
+tracker.finish()
 
 print("\nTüm rekabet analizi grafikleri outputs/ klasörüne kaydedildi.")

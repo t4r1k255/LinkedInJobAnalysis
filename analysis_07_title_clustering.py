@@ -4,6 +4,7 @@ import matplotlib.ticker as mticker
 import seaborn as sns
 import numpy as np
 import os
+from utils_progress import ProgressBar, StepTracker
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
@@ -12,8 +13,7 @@ from collections import Counter
 # ── AYARLAR ───────────────────────────────────────────────────────────────────
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
-# SAMPLE_SIZE = 100_000  # tüm veri kullanılıyor
-RANDOM_SEED = 42  # clustering/shuffle için kullanılıyor
+RANDOM_SEED = 42
 N_CLUSTERS  = 8
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -21,13 +21,18 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
-# ── VERİ YÜKLEME ──────────────────────────────────────────────────────────────
+tracker = StepTracker(total_steps=8, script_name="analysis_07_title_clustering.py — Title Clustering")
+
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=1, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id", "title", "normalized_salary",
              "formatted_experience_level", "remote_allowed"],
     low_memory=False
 ).reset_index(drop=True)
+_bar.step("postings.csv")
+_bar.finish()
 
 postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
 postings["formatted_experience_level"] = postings["formatted_experience_level"].fillna("Unknown")
@@ -43,8 +48,10 @@ postings["title_clean"] = (postings["title"]
     .str.strip())
 
 title_df = postings[postings["title_clean"].str.len() > 2].copy().reset_index(drop=True)
-print(f"Unvan analizi için {len(title_df):,} ilan hazır.\n")
+print(f"Unvan analizi için {len(title_df):,} ilan hazır.")
+tracker.done(1)
 
+tracker.start(2, "TF-IDF vectorization")
 # ── TF-IDF + K-MEANS ──────────────────────────────────────────────────────────
 print("TF-IDF vektörizasyonu yapılıyor...")
 tfidf = TfidfVectorizer(
@@ -55,11 +62,14 @@ tfidf = TfidfVectorizer(
 )
 X = tfidf.fit_transform(title_df["title_clean"])
 print(f"TF-IDF matris boyutu: {X.shape}")
+tracker.done(2)
 
+tracker.start(3, "K-Means clustering")
 print(f"K-Means kümeleme yapılıyor (k={N_CLUSTERS})...")
 kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=RANDOM_SEED, n_init=10)
 title_df["cluster"] = kmeans.fit_predict(X)
-print("Kümeleme tamamlandı.\n")
+print("Kümeleme tamamlandı.")
+tracker.done(3)
 
 # Her küme için en yaygın unvan terimlerini bul
 feature_names = tfidf.get_feature_names_out()
@@ -76,6 +86,7 @@ for k, v in cluster_labels.items():
     print(f"  Küme {k}: {v}  ({count:,} ilan)")
 
 # ══════════════════════════════════════════════════════════════════════════════
+tracker.start(4, "Plot 1 — Cluster sizes")
 # GRAFİK 1 — Küme büyüklükleri
 # ══════════════════════════════════════════════════════════════════════════════
 cluster_counts = title_df["cluster_label"].value_counts().sort_values(ascending=True)
@@ -91,8 +102,10 @@ ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
 plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "32_cluster_sizes.png"), dpi=150)
 plt.close()
-print("\n32_cluster_sizes.png kaydedildi.")
+print("32_cluster_sizes.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 2 — PCA 2D visualization")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 2 — PCA ile 2D görselleştirme (10k örneklem)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -122,7 +135,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "33_cluster_pca.png"), dpi=150)
 plt.close()
 print("33_cluster_pca.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 3 — Cluster salary")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 3 — Kümeye göre medyan maaş
 # ══════════════════════════════════════════════════════════════════════════════
@@ -145,7 +160,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "34_cluster_salary.png"), dpi=150)
 plt.close()
 print("34_cluster_salary.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 4 — Cluster experience")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 4 — Kümeye göre deneyim seviyesi dağılımı
 # ══════════════════════════════════════════════════════════════════════════════
@@ -170,7 +187,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "35_cluster_experience.png"), dpi=150)
 plt.close()
 print("35_cluster_experience.png kaydedildi.")
+tracker.done(7)
 
+tracker.start(8, "Plot 5 — Cluster remote rate")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 5 — Kümeye göre remote oranı
 # ══════════════════════════════════════════════════════════════════════════════
@@ -190,5 +209,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "36_cluster_remote.png"), dpi=150)
 plt.close()
 print("36_cluster_remote.png kaydedildi.")
+tracker.done(8)
+tracker.finish()
 
 print("\nTüm kümeleme grafikleri outputs/ klasörüne kaydedildi.")

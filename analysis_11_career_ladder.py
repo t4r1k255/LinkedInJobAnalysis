@@ -4,10 +4,10 @@ import matplotlib.ticker as mticker
 import seaborn as sns
 import numpy as np
 import os
+from utils_progress import ProgressBar, StepTracker
 
 DATA_PATH   = "data/"
 OUTPUT_PATH = "outputs/"
-SAMPLE_SIZE = 100_000
 RANDOM_SEED = 42
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -15,17 +15,24 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 sns.set_theme(style="whitegrid", palette="Blues_d")
 plt.rcParams["font.family"] = "DejaVu Sans"
 
+tracker = StepTracker(total_steps=7, script_name="analysis_11_career_ladder.py — Career Ladder")
+
+tracker.start(1, "Loading data")
+_bar = ProgressBar(total=4, title="Loading CSV files", unit="files")
 postings = pd.read_csv(
     os.path.join(DATA_PATH, "postings.csv"),
     usecols=["job_id", "company_id", "normalized_salary",
              "formatted_experience_level", "remote_allowed", "formatted_work_type"],
     low_memory=False
-).sample(n=SAMPLE_SIZE, random_state=RANDOM_SEED).reset_index(drop=True)
-
+).reset_index(drop=True)
+_bar.step("postings.csv")
 companies      = pd.read_csv(os.path.join(DATA_PATH, "companies.csv"),
                              usecols=["company_id","company_size"])
+_bar.step("companies.csv")
 job_industries = pd.read_csv(os.path.join(DATA_PATH, "job_industries.csv"))
+_bar.step("job_industries.csv")
 industries     = pd.read_csv(os.path.join(DATA_PATH, "industries.csv"))
+_bar.step("industries.csv")
 
 postings["remote_allowed"] = postings["remote_allowed"].fillna(0).astype(int)
 postings["formatted_experience_level"] = postings["formatted_experience_level"].fillna("Unknown")
@@ -44,9 +51,16 @@ job_ind_full = job_ind_f.merge(industries, on="industry_id", how="left")
 sal_df   = postings[postings["normalized_salary"].notna()].copy()
 exp_order= ["Entry level", "Associate", "Mid-Senior level", "Director", "Executive"]
 
-print(f"Maaş verisi olan ilan: {len(sal_df):,}\n")
+_bar.finish()
+tracker.done(1)
+
+tracker.start(2, "Cleaning & joins")
+tracker.done(2)
+
+print(f"Maaş verisi olan ilan: {len(sal_df):,}")
 
 # ══════════════════════════════════════════════════════════════════════════════
+tracker.start(3, "Plot 1 — Career ladder violin")
 # GRAFİK 1 — Kariyer merdiveni: deneyim bazında maaş dağılımı (violin)
 # ══════════════════════════════════════════════════════════════════════════════
 violin_df = sal_df[sal_df["formatted_experience_level"].isin(exp_order)].copy()
@@ -81,7 +95,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "52_career_ladder_violin.png"), dpi=150)
 plt.close()
 print("52_career_ladder_violin.png kaydedildi.")
+tracker.done(3)
 
+tracker.start(4, "Plot 2 — Career ladder by industry")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 2 — Sektör bazında kariyer merdiveni (çizgi grafik, top 6 sektör)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -117,7 +133,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "53_career_ladder_by_industry.png"), dpi=150)
 plt.close()
 print("53_career_ladder_by_industry.png kaydedildi.")
+tracker.done(4)
 
+tracker.start(5, "Plot 3 — Company size × Experience matrix")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 3 — Şirket büyüklüğü bazında kariyer merdiveni
 # ══════════════════════════════════════════════════════════════════════════════
@@ -142,7 +160,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "54_career_ladder_company_size.png"), dpi=150)
 plt.close()
 print("54_career_ladder_company_size.png kaydedildi.")
+tracker.done(5)
 
+tracker.start(6, "Plot 4 — Salary growth rate")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 4 — Maaş artış hızı (entry → mid-senior, sektör bazında)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -173,7 +193,9 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "55_salary_growth_rate.png"), dpi=150)
 plt.close()
 print("55_salary_growth_rate.png kaydedildi.")
+tracker.done(6)
 
+tracker.start(7, "Plot 5 — Remote career ladder")
 # ══════════════════════════════════════════════════════════════════════════════
 # GRAFİK 5 — Remote çalışmanın kariyer merdiveni üzerindeki etkisi
 # ══════════════════════════════════════════════════════════════════════════════
@@ -205,5 +227,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_PATH, "56_remote_career_ladder.png"), dpi=150)
 plt.close()
 print("56_remote_career_ladder.png kaydedildi.")
+tracker.done(7)
+tracker.finish()
 
 print("\nTüm kariyer merdiveni grafikleri outputs/ klasörüne kaydedildi.")
