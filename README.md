@@ -456,7 +456,7 @@ Download the Kaggle dataset and place all CSV files inside:
 data/
 ```
 
-### 5. Add Gemini API key, optional
+### 5. Add Gemini API key (optional)
 
 Only required for `analysis_03_llm.py`.
 
