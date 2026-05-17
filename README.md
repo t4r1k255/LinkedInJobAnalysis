@@ -1,78 +1,107 @@
 # LinkedIn Job Postings — Advanced Analysis & Salary Prediction
 
-A comprehensive data analysis and machine learning project based on the Kaggle **LinkedIn Job Postings** dataset.  
-The project analyzes labor-market trends, skill demand, salary patterns, company and geographic differences, competition metrics, benefits, remote work, and salary prediction using machine learning.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python" />
+  <img src="https://img.shields.io/badge/Dataset-123%2C849%20postings-informational?style=flat-square" />
+  <img src="https://img.shields.io/badge/Best%20R²-0.757-success?style=flat-square" />
+  <img src="https://img.shields.io/badge/Charts-77%2B-orange?style=flat-square" />
+  <img src="https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square" />
+</p>
 
-The final deliverable includes:
+A comprehensive data analysis and machine learning project on **123,849 LinkedIn job postings** from the United States. The project covers market exploration, skill demand analysis, salary prediction, SHAP-based model explainability, and an interactive Streamlit dashboard with six distinct stakeholder perspectives.
 
-- 13 analysis scripts
-- 77+ generated visual outputs
-- 3 machine learning model stages
-- Final advanced ensemble salary prediction model
-- SHAP explainability
-- Overfitting / diagnostics analysis
-- Streamlit dashboard with six stakeholder perspectives
+---
+
+## Contents
+
+- [Project Highlights](#project-highlights)
+- [Dataset](#dataset)
+- [Project Structure](#project-structure)
+- [Analysis Modules](#analysis-modules)
+- [Machine Learning Pipeline](#machine-learning-pipeline)
+- [SHAP Explainability](#shap-explainability)
+- [Streamlit Dashboard](#streamlit-dashboard)
+- [Setup](#setup)
+- [Running Order](#running-order)
+- [Key Findings](#key-findings)
+- [Limitations](#limitations)
+
+---
+
+## Project Highlights
+
+| Category | Detail |
+|---|---|
+| Dataset | 123,849 LinkedIn job postings · 9 relational tables · Kaggle 2024 snapshot |
+| Analysis | 13 scripts · 77+ charts · 6 analysis dimensions |
+| Modeling | XGBoost · LightGBM · CatBoost · OOF Ensemble |
+| Best model | R² = **0.757** · RMSE = **$25,225** · Log R² = **0.807** |
+| Text features | TF-IDF + SVD on titles and descriptions · leakage-safe cleaning |
+| Explainability | SHAP TreeExplainer · beeswarm · bar · dependence plots |
+| Dashboard | Streamlit · 6 perspectives · live salary prediction |
 
 ---
 
 ## Dataset
 
-**Source:** Kaggle — `arshkon/linkedin-job-postings`
+**Source:** [Kaggle — arshkon/linkedin-job-postings](https://www.kaggle.com/datasets/arshkon/linkedin-job-postings)
 
 Download the dataset from Kaggle and place all CSV files inside a `data/` folder at the project root.
 
-Expected files:
+| File | Rows | Description |
+|---|---|---|
+| `postings.csv` | 123,849 | Job title, salary, location, experience, work type, views, applies |
+| `companies.csv` | 24,473 | Company name, size, state, country |
+| `job_skills.csv` | 993,285 | Job-to-skill mappings |
+| `skills.csv` | 35,645 | Skill abbreviation → name lookup |
+| `job_industries.csv` | 139,699 | Job-to-industry mappings |
+| `industries.csv` | 149 | Industry ID → name lookup |
+| `salaries.csv` | 50,854 | Min/max/med salary, pay period, currency |
+| `benefits.csv` | 254,898 | Benefit types by job posting |
+| `employee_counts.csv` | 186,027 | Company headcount and follower history |
 
-| File | Description |
-|---|---|
-| `postings.csv` | Main job posting table with title, salary, location, experience, work type, views/applications |
-| `companies.csv` | Company metadata such as company size, location, and company profile information |
-| `job_skills.csv` | Job-to-skill mappings |
-| `skills.csv` | Skill labels |
-| `job_industries.csv` | Job-to-industry mappings |
-| `industries.csv` | Industry labels |
-| `salaries.csv` | Salary ranges, pay period, and currency |
-| `benefits.csv` | Benefits offered by postings |
-| `employee_counts.csv` | Company employee and follower count history |
-
-> The dataset is not included in this repository because of size and licensing.  
-> Create a local `data/` directory and place the CSV files there.
+> The dataset is not included in this repository. Create a local `data/` directory and place the CSV files there.
 
 ---
 
 ## Project Structure
 
-```text
+```
 LinkedInJobAnalysis/
-├── data/                              # Kaggle CSV files, not tracked
-├── outputs/                           # Generated charts and model outputs
-├── models/                            # Saved .joblib models
 │
-├── data_loader.py                     # Initial schema and file inspection
-├── data_cleaning.py                   # Data cleaning workflow
+├── data/                                   # Kaggle CSV files (not tracked)
+├── outputs/                                # Generated PNG charts (not tracked)
+├── models/                                 # Saved .joblib model files (not tracked)
 │
-├── analysis_01_market.py              # Market overview
-├── analysis_02_skills.py              # Skill demand analysis
-├── analysis_03_llm.py                 # Gemini-based LLM analysis
-├── analysis_04_crosssection.py        # Cross-sectional salary/work/skill analysis
-├── analysis_05_geo.py                 # Geographic analysis
-├── analysis_06_company.py             # Company-level analysis
-├── analysis_07_title_clustering.py    # TF-IDF + K-Means title clustering
-├── analysis_08_benefits.py            # Benefits analysis
-├── analysis_09_skill_salary.py        # Skill salary premium analysis
-├── analysis_10_competition.py         # Competition score analysis
-├── analysis_11_career_ladder.py       # Career ladder and salary growth
-├── analysis_12_remote.py              # Remote work analysis
-├── analysis_13_salary_gap.py          # Salary negotiation gap analysis
+├── data_loader.py                          # Schema inspection and data profiling
+├── data_cleaning.py                        # Cleaning pipeline with summary stats
 │
-├── model_01_salary_v3_final.py        # Baseline model comparison
-├── model_02_pipeline_v3_cv_safe.py    # CV-safe pipeline and Optuna tuning
-├── model_03_salary_advanced_progress.py # Final advanced ensemble model
-├── model_03_diagnostics.py            # Overfitting, residual, learning-curve diagnostics
-├── shap_dependence.py                 # SHAP explainability plots
+├── analysis_01_market.py                   # Market overview (6 charts)
+├── analysis_02_skills.py                   # Skill demand analysis (5 charts)
+├── analysis_03_llm.py                      # Gemini API job description analysis (5 charts)
+├── analysis_04_crosssection.py             # Cross-sectional salary/skill analysis (5 charts)
+├── analysis_05_geo.py                      # Geographic distribution (5 charts)
+├── analysis_06_company.py                  # Company-level analysis (5 charts)
+├── analysis_07_title_clustering.py         # TF-IDF + K-Means title clustering (5 charts)
+├── analysis_08_benefits.py                 # Benefits and perks analysis (5 charts)
+├── analysis_09_skill_salary.py             # Skill salary premium — Mann-Whitney U (5 charts)
+├── analysis_10_competition.py              # Competition score: applies/views (5 charts)
+├── analysis_11_career_ladder.py            # Career progression and salary growth (5 charts)
+├── analysis_12_remote.py                   # Remote work patterns (5 charts)
+├── analysis_13_salary_gap.py               # Salary negotiation range analysis (5 charts)
 │
-├── streamlit_app.py                   # Final dashboard
-├── utils_progress.py                  # Shared progress bar utilities
+├── model_01_salary_v3_final.py             # Feature-rich baseline — XGB/LGB/Cat + SHAP
+├── model_02_pipeline_v3_cv_safe.py         # CV-safe sklearn Pipeline + Optuna tuning
+├── model_03_salary_advanced_progress.py    # Advanced ensemble: TF-IDF/SVD + interactions
+├── model_04_stacking_intervals.py          # Ridge meta-learner stacking + prediction intervals
+├── model_03_diagnostics.py                 # Overfitting, residual, learning-curve diagnostics
+│
+├── prepare_shap_data.py                    # Feature engineering for SHAP (run before shap_dependence)
+├── shap_dependence.py                      # SHAP beeswarm, bar, and dependence plots
+│
+├── streamlit_app.py                        # Interactive dashboard (6 perspectives)
+├── utils_progress.py                       # Shared progress bar utility (ProgressBar, StepTracker)
+│
 ├── requirements.txt
 └── README.md
 ```
@@ -81,176 +110,85 @@ LinkedInJobAnalysis/
 
 ## Analysis Modules
 
-### 1. Market Overview
+Each script loads the full 123k dataset (no sampling), produces charts to `outputs/`, and is instrumented with `utils_progress.py` for step-by-step progress tracking.
+
+### 01 · Market Overview
 `analysis_01_market.py`
 
-Explores the overall job market structure:
+High-level picture of the dataset: experience-level distribution, work type breakdown, remote vs on-site split, top states by volume, salary by experience level, and remote rate by company size.
 
-- Experience-level distribution
-- Work type breakdown
-- Remote vs non-remote postings
-- Top states by job volume
-- Salary by experience level
-- Remote rate by company size
-
-### 2. Skill Demand
+### 02 · Skill Demand
 `analysis_02_skills.py`
 
-Analyzes the skills and job functions most frequently requested:
+Frequency analysis of the 35k+ distinct skills in the dataset. Top-20 skills overall, top-paying skills (median salary), skill demand by experience level, and skill composition by industry.
 
-- Top 20 skills
-- Top industries
-- Skill demand by experience level
-- Highest-paying skills
-- Skill distribution by industry
-
-### 3. LLM-Assisted Job Description Analysis
+### 03 · LLM-Assisted Analysis
 `analysis_03_llm.py`
 
-Uses Gemini API on a stratified sample of job descriptions:
+Uses the **Gemini API** on a stratified sample of 500 job descriptions to extract structured signals not available in the structured columns: degree requirement, soft skill type, hiring urgency, and tech vs non-tech classification. Results cached to `outputs/llm_results.csv`.
 
-- Degree requirement extraction
-- Soft skill identification
-- Urgency classification
-- Tech vs non-tech role classification
-- Degree requirement by experience level
+> Requires `GEMINI_API_KEY` in a `.env` file.
 
-> Requires a `.env` file containing `GEMINI_API_KEY`.
-
-### 4. Cross-Sectional Analysis
+### 04 · Cross-Section
 `analysis_04_crosssection.py`
 
-Studies relationships between salary bands and other dimensions:
+Multi-dimensional salary analysis: salary band × experience, salary band × industry, remote ratio vs salary by state (bubble chart), work type × experience, and skill × salary band heatmap.
 
-- Salary band × experience level
-- Salary band × industry
-- State-level remote ratio and salary bubble chart
-- Work type × experience level
-- Skill × salary band heatmap
-
-### 5. Geographic Analysis
+### 05 · Geographic Analysis
 `analysis_05_geo.py`
 
-Explores location-based differences:
+State-level salary ranking, remote rate by state, top cities by volume, state × industry heatmap, and experience distribution by state.
 
-- State median salary ranking
-- State remote rate
-- Top cities by job volume
-- State × industry heatmap
-- State × experience distribution
-
-### 6. Company-Level Analysis
+### 06 · Company Analysis
 `analysis_06_company.py`
 
-Analyzes company-related patterns:
+Top hiring companies, salary by company size (1-10 to 10K+), company size × industry heatmap, top-paying companies (min 20 postings), and company size × experience distribution.
 
-- Top hiring companies
-- Salary by company size
-- Company size × industry heatmap
-- Top-paying companies
-- Company size × experience distribution
-
-### 7. Title Clustering
+### 07 · Title Clustering
 `analysis_07_title_clustering.py`
 
-Groups job titles using text mining:
+TF-IDF vectorization of job titles (300 features, bigrams) followed by K-Means clustering (k=8). PCA 2D visualization on 10k sample, salary and experience profile by cluster, remote rate by cluster.
 
-- TF-IDF vectorization
-- K-Means clustering
-- PCA visualization
-- Salary by title cluster
-- Experience and remote rate by cluster
-
-### 8. Benefits Analysis
+### 08 · Benefits Analysis
 `analysis_08_benefits.py`
 
-Examines employer-provided benefits:
+Most common benefits across 254k records, average benefit count by company size, benefit composition by industry and experience level, and benefit count vs median salary.
 
-- Most common benefits
-- Benefits by company size
-- Benefits by industry
-- Benefit count vs salary
-- Benefits by experience level
-
-### 9. Skill Salary Premium
+### 09 · Skill Salary Premium
 `analysis_09_skill_salary.py`
 
-Measures association between skills and salary:
+For every skill with ≥200 postings, computes the median salary difference between postings with and without that skill. Uses **Mann-Whitney U** test (p<0.05) to filter statistically significant premiums. Includes experience × skill and industry × skill salary matrices.
 
-- Skill salary premium
-- Mann-Whitney U significance testing
-- Salary boxplots by skill
-- Experience × skill salary matrix
-- Industry × skill salary matrix
-- Skill count vs salary
-
-### 10. Competition Analysis
+### 10 · Competition Analysis
 `analysis_10_competition.py`
 
-Uses `applies / views` as a job competition score:
+Derives a competition score as `applies / views`. Identifies the most competitive job titles and industries, competition by experience level, remote vs on-site comparison, and a low-competition / high-salary opportunity scatter.
 
-- Most competitive titles
-- Competition by industry
-- Competition by experience level
-- Remote vs non-remote competition
-- Low-competition high-salary opportunities
-
-### 11. Career Ladder
+### 11 · Career Ladder
 `analysis_11_career_ladder.py`
 
-Analyzes salary progression across experience levels:
+Salary distribution by experience level (violin), industry-specific career trajectories (line chart), company size × experience salary matrix (heatmap), entry→mid-senior growth rate by industry, and remote vs on-site career ladder comparison.
 
-- Career ladder salary distribution
-- Industry-specific career trajectories
-- Company size × experience salary matrix
-- Entry-to-mid-senior salary growth
-- Remote vs non-remote career ladder
-
-### 12. Remote Work Analysis
+### 12 · Remote Work Analysis
 `analysis_12_remote.py`
 
-Explores remote work patterns:
+Remote salary premium by industry, remote vs on-site skill profiles, remote rate by company size (dual-axis), state-level remote rate vs salary scatter with trend line, and experience × work type salary grouped bars.
 
-- Remote vs non-remote salary comparison
-- Remote salary premium by sector
-- Remote skill profiles
-- Remote rate by company size
-- State-level remote and salary patterns
-
-### 13. Salary Gap / Negotiation Range
+### 13 · Salary Gap / Negotiation Range
 `analysis_13_salary_gap.py`
 
-Uses salary range width as a negotiation-gap signal:
-
-- Salary gap distribution
-- Salary gap by industry
-- Salary gap by experience level
-- Salary level vs salary gap
-- Industry × experience negotiation map
+Uses `salaries.csv` (21k yearly USD records) to analyze the width of posted salary ranges as a negotiation signal. Gap distribution, gap by industry and experience, gap by salary band, and a sector × experience negotiation heatmap.
 
 ---
 
-## Machine Learning Models
+## Machine Learning Pipeline
 
-The project uses a staged modeling process.
+Salary prediction is developed in three stages, each building on the previous.
 
-### Model 01 — Feature-Rich Baseline
+### Stage 1 — Feature-Rich Baseline
+**File:** `model_01_salary_v3_final.py`
 
-File: `model_01_salary_v3_final.py`
-
-Models tested:
-
-- XGBoost
-- LightGBM
-- CatBoost
-
-Main purpose:
-
-- Establish a strong initial salary prediction baseline
-- Add engineered features such as skills, benefits, company size, title keywords, and location
-- Generate initial SHAP explanations
-
-Best result:
+Establishes a strong baseline with hand-crafted features: skills multi-hot (top 20), company size, title keyword flags, experience level, industry, location. Evaluates three models with 5-fold CV.
 
 | Model | RMSE | MAE | Raw R² | Log R² |
 |---|---:|---:|---:|---:|
@@ -260,19 +198,10 @@ Best result:
 
 ---
 
-### Model 02 — CV-Safe Pipeline
+### Stage 2 — CV-Safe Pipeline + Optuna
+**File:** `model_02_pipeline_v3_cv_safe.py`
 
-File: `model_02_pipeline_v3_cv_safe.py`
-
-Main improvements:
-
-- Scikit-learn Pipeline
-- CV-safe target encoding
-- Optuna hyperparameter tuning
-- Title TF-IDF + SVD features
-- Saved production-ready pipeline
-
-Best result:
+Wraps preprocessing in a `sklearn.Pipeline` to prevent target leakage. Adds CV-safe median target encoding, title TF-IDF + SVD (25 components), and Optuna hyperparameter search (40 trials per model). Best pipeline saved to `models/best_salary_pipeline.joblib`.
 
 | Model | RMSE | MAE | Raw R² | Log R² |
 |---|---:|---:|---:|---:|
@@ -280,33 +209,19 @@ Best result:
 | **LightGBM** | **$27,494** | **$17,839** | **0.7112** | **0.7636** |
 | CatBoost | $28,434 | $18,707 | 0.6912 | 0.7492 |
 
-Saved model:
-
-```text
-models/best_salary_pipeline.joblib
-```
-
 ---
 
-### Model 03 — Final Advanced Ensemble
+### Stage 3 — Advanced Ensemble (Final)
+**File:** `model_03_salary_advanced_progress.py`
 
-File: `model_03_salary_advanced_progress.py`
+The production model. Key additions over Stage 2:
 
-Final selected model.
-
-Main improvements:
-
-- Cleaned job description text to remove salary leakage
-- Title TF-IDF + SVD
-- Description TF-IDF + SVD
-- Title clustering
-- Interaction features
-- CV-safe target encoding
-- Optuna tuning
-- Out-of-fold weighted ensemble
-- LightGBM + XGBoost + CatBoost
-
-Final result:
+- **Salary leakage removal** from job descriptions (sentence-level filter, vectorized)
+- **Description TF-IDF + SVD** (100 components, after leakage cleaning)
+- **10 interaction features** (city × industry, exp × title cluster, etc.)
+- **CV-safe target encoding** with smoothing
+- **OOF inverse-RMSE weighted ensemble** across all three models
+- Saved to `models/best_salary_model_03_advanced_progress.joblib`
 
 | Model | RMSE | MAE | Raw R² | Log R² |
 |---|---:|---:|---:|---:|
@@ -315,27 +230,17 @@ Final result:
 | CatBoost | $25,663 | $16,487 | 0.7484 | 0.7980 |
 | **OOF Ensemble** | **$25,225** | **$16,004** | **0.7570** | **0.8065** |
 
-Saved model:
+---
 
-```text
-models/best_salary_model_03_advanced_progress.joblib
-```
+### Stage 4 — Stacking + Prediction Intervals
+**File:** `model_04_stacking_intervals.py`
+
+Ridge meta-learner trained on OOF predictions from Stage 3 models. Adds quantile regression for prediction intervals and a fairness/error analysis by salary range.
 
 ---
 
-## Diagnostics
-
-File: `model_03_diagnostics.py`
-
-Diagnostic outputs:
-
-- Train vs OOF comparison
-- Learning curve
-- Residual analysis by salary range
-- Error distribution
-- Fold stability
-
-Diagnostic summary:
+### Diagnostics
+**File:** `model_03_diagnostics.py`
 
 | Metric | Value |
 |---|---:|
@@ -345,81 +250,55 @@ Diagnostic summary:
 | Fold R² std | 0.0081 |
 | OOF RMSE | $25,225 |
 
-Interpretation:
-
-- The model has overfitting tendency because train R² is much higher than OOF R².
-- Final performance is based on OOF/CV results, not training score.
-- Fold-level validation is stable, so the model performance is consistent across folds.
+The train/OOF gap (0.228) indicates overfitting in the training fit, but fold stability (std = 0.008) confirms reliable generalization. All reported metrics are OOF/CV-based.
 
 ---
 
 ## SHAP Explainability
 
-File: `shap_dependence.py`
+**Files:** `prepare_shap_data.py` → `shap_dependence.py`
 
-The SHAP analysis explains which features most influence salary prediction.
+Run `prepare_shap_data.py` first to build the feature matrix and save it to `models/shap_X.parquet`. Then run `shap_dependence.py` to generate:
 
-Expected outputs include:
+- **SHAP beeswarm plot** — feature impact distribution across 2k samples
+- **SHAP bar plot** — mean |SHAP| importance ranking
+- **SHAP dependence plots** — top 4 features: value vs SHAP value with trend line
 
-- SHAP beeswarm plot
-- SHAP bar importance plot
-- SHAP dependence plots for selected high-impact features
+```bash
+python prepare_shap_data.py    # ~30 seconds
+python shap_dependence.py      # ~2 minutes
+```
 
-Important interpretation:
-
-- Engagement features such as views, applies, and follower count are correlational.
-- They should not be interpreted as causal drivers of salary.
-- Higher-paying or more attractive jobs may naturally receive more views and applications.
+> **Note:** `follower_count` and `applies` appear in the top features by SHAP value. These are correlational signals — higher-paying or more prominent postings attract more engagement — not causal salary drivers.
 
 ---
 
 ## Streamlit Dashboard
 
-File:
-
-```text
-streamlit_app.py
-```
-
-Run:
+**File:** `streamlit_app.py`
 
 ```bash
 streamlit run streamlit_app.py
 ```
 
-Dashboard perspectives:
+Six stakeholder perspectives, each with dedicated tabs:
 
-| Perspective | Purpose |
+| Perspective | Key content |
 |---|---|
-| Job Seeker | Salary prediction, similar posting salary distribution, skills, career ladder, competition |
-| HR / Recruiting | Salary benchmark, role competition, company profile, benefits |
-| Education | Skill demand and curriculum planning |
-| Investor | Sector and geographic market signals |
-| Policy Maker | Regional salary differences, transparency, remote work |
-| Researcher | Model comparison, SHAP, diagnostics, methodology, data quality |
+| **Job Seeker** | Live salary prediction form · skill premium guide · career ladder · competition score |
+| **HR / Recruiting** | Market salary benchmark · competition by role · company size profiles · benefits |
+| **Education** | Top skills by demand · diploma requirement rates · skill × curriculum mapping |
+| **Investor** | Sector hiring volume · geographic talent density · company size segmentation |
+| **Policy Maker** | Regional salary inequality · salary gap / transparency · remote work policy signals |
+| **Researcher** | Model comparison (01→03) · SHAP plots · feature importance · methodology · limitations |
 
-Key dashboard features:
-
-- Final Model 03 salary prediction
-- Similar postings salary distribution
-- Salary uncertainty bands based on MAE/RMSE
-- Benefit type selection and benefit package strength
-- Interactive market explorer
-- Data quality panel
-- Chart file checker
-- Downloadable filtered summary
-
-Important limitation:
-
-> The dataset contains job postings, salaries, views, and applications.  
-> It does **not** contain who was hired or which salary offer was accepted.  
-> Therefore, the dashboard estimates salary ranges and posting-level salary distributions, not hiring probability.
+The **live salary prediction** (Job Seeker tab) uses `models/best_salary_pipeline.joblib` and accepts: experience level, work type, industry, state, company size, remote flag, and up to 20 skills.
 
 ---
 
 ## Setup
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/t4r1k255/LinkedInJobAnalysis.git
@@ -428,15 +307,13 @@ cd LinkedInJobAnalysis
 
 ### 2. Create virtual environment
 
-Windows:
-
+**Windows**
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 ```
 
-macOS / Linux:
-
+**macOS / Linux**
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -450,19 +327,15 @@ pip install -r requirements.txt
 
 ### 4. Add dataset
 
-Download the Kaggle dataset and place all CSV files inside:
-
-```text
+Download from Kaggle and place all CSV files in:
+```
 data/
 ```
 
-### 5. Add Gemini API key (optional)
+### 5. Gemini API key (optional)
 
-Only required for `analysis_03_llm.py`.
-
-Create `.env`:
-
-```text
+Required only for `analysis_03_llm.py`. Create a `.env` file:
+```
 GEMINI_API_KEY=your_api_key_here
 ```
 
@@ -470,19 +343,15 @@ GEMINI_API_KEY=your_api_key_here
 
 ## Running Order
 
-### Data inspection and cleaning
-
 ```bash
+# 1. Inspect and clean data
 python data_loader.py
 python data_cleaning.py
-```
 
-### Analysis scripts
-
-```bash
+# 2. Run analysis scripts (independent, any order)
 python analysis_01_market.py
 python analysis_02_skills.py
-python analysis_03_llm.py
+python analysis_03_llm.py          # requires GEMINI_API_KEY
 python analysis_04_crosssection.py
 python analysis_05_geo.py
 python analysis_06_company.py
@@ -493,83 +362,66 @@ python analysis_10_competition.py
 python analysis_11_career_ladder.py
 python analysis_12_remote.py
 python analysis_13_salary_gap.py
-```
 
-### Model scripts
-
-```bash
+# 3. Train models (sequential — each builds on the previous)
 python model_01_salary_v3_final.py
 python model_02_pipeline_v3_cv_safe.py
 python model_03_salary_advanced_progress.py
-```
+python model_04_stacking_intervals.py
 
-### Diagnostics and SHAP
-
-```bash
+# 4. Diagnostics and explainability
 python model_03_diagnostics.py
+python prepare_shap_data.py        # must run before shap_dependence
 python shap_dependence.py
-```
 
-### Dashboard
-
-```bash
+# 5. Dashboard
 streamlit run streamlit_app.py
 ```
 
 ---
 
-## Outputs
+## Key Findings
 
-Generated files are saved under:
+A selection of the most actionable results across all analyses.
 
-```text
-outputs/
-```
+**Salary and experience**
+- Median salary jumps from **$72k** (Entry level) to **$130k** (Director) — an 80% increase.
+- The largest single step is Entry → Mid-Senior: approximately **$35–50k** depending on industry.
 
-Main output categories:
+**Skill premium**
+- Skills with the highest statistically significant salary premium include Engineering, Finance, and Information Technology (all p<0.05, Mann-Whitney U).
+- Jobs listing 3–5 skills have higher median salaries than those listing 1–2 or 8+.
 
-- EDA charts
-- Skill and salary charts
-- Geographic charts
-- Company charts
-- Remote work charts
-- Benefit charts
-- Competition charts
-- Salary gap charts
-- Model comparison charts
-- SHAP charts
-- Diagnostic charts
+**Remote work**
+- Remote postings represent ~12% of all listings but show a salary premium of **$15–20k** vs non-remote postings.
+- Remote rate peaks at mid-size companies (1K–5K employees).
 
-Saved models are stored under:
+**Competition**
+- Healthcare and nursing roles have the lowest competition scores (applies/views), while entry-level sales and administrative roles have the highest.
+- Low-competition + high-salary opportunities cluster in niche engineering and specialized finance roles.
 
-```text
-models/
-```
+**Salary negotiation gap**
+- Median posted salary range: **$30,000** (~32% of minimum salary).
+- Financial services and staffing sectors show the widest negotiation gaps; construction and retail the narrowest.
 
----
-
-## Notes on Reproducibility
-
-- Random seed is fixed where possible.
-- Model performance is based on cross-validation and out-of-fold predictions.
-- Target encoding is implemented in a CV-safe way to reduce leakage.
-- Description salary text is cleaned before text feature extraction.
-- Large generated folders such as `data/`, `outputs/`, and `models/` may be excluded from GitHub depending on repository size.
+**Modeling**
+- Adding leakage-cleaned description text (100 SVD components) and interaction features improved R² from 0.711 to 0.757 — the single largest jump across all three stages.
+- `follower_count` and `applies` are the top SHAP features but should be treated as correlational proxies, not causal salary drivers.
 
 ---
 
 ## Limitations
 
-- Salary data is missing for many postings.
-- `remote_allowed = 0` may mean non-remote or missing remote information.
-- The dataset is mostly US-centered.
-- The data is a snapshot of the labor market and may not represent current conditions.
-- Views/applications/follower counts are correlational features, not causal salary drivers.
-- The dataset does not include actual hiring outcomes or accepted salary offers.
-- Salary prediction is an estimate and should not be treated as a guaranteed compensation value.
+- **Salary coverage:** salary data is available for ~29% of postings (35,604 of 123,849). Results may not generalize to postings without salary disclosure.
+- **US-centric:** nearly all postings are from the United States. Results do not apply to other labor markets.
+- **Single snapshot:** the dataset reflects April 2024. Trends may not represent current conditions.
+- **`remote_allowed` sparsity:** 87% of postings have no remote flag. Null cannot be reliably interpreted as "on-site."
+- **Engagement features:** `views`, `applies`, and `follower_count` correlate with salary but the direction of causality is unclear. They should not be used in isolation to explain salary levels.
+- **No hiring outcomes:** the dataset records job postings, not hires. Salary predictions reflect posted ranges, not offer or negotiated amounts.
+- **Overfitting gap:** train R² (0.985) vs OOF R² (0.757) shows the model overfits in full-data fit. All reported metrics are CV-based.
 
 ---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.

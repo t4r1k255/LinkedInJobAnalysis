@@ -1,0 +1,45 @@
+{
+  "model_01": {
+    "script": "model_01_salary_v3_final.py",
+    "type": "baseline gradient boosting comparison",
+    "best_model": "XGBoost",
+    "best_raw_r2": 0.653,
+    "best_rmse": 30118,
+    "best_mae": 20033
+  },
+  "model_02": {
+    "script": "model_02_pipeline_v3_cv_safe.py",
+    "type": "cv-safe pipeline with Optuna tuning",
+    "best_model": "LightGBM",
+    "best_raw_r2": 0.7112,
+    "best_rmse": 27494,
+    "best_mae": 17839
+  },
+  "model_03": {
+    "script": "model_03_salary_advanced_progress.py",
+    "type": "advanced weighted ensemble",
+    "base_models": [
+      "LightGBM",
+      "XGBoost",
+      "CatBoost"
+    ],
+    "raw_r2": 0.757,
+    "log_r2": 0.8065,
+    "rmse": 25225,
+    "mae": 16004,
+    "artifact": "models/best_salary_model_03_advanced_progress.joblib"
+  },
+  "model_04": {
+    "script": "model_04_stacking_intervals.py",
+    "type": "ridge stacking + prediction intervals + segment error analysis",
+    "raw_r2": 0.7593,
+    "rmse": 25106,
+    "mae": 15929,
+    "artifact": "models/best_salary_model_04_stacking_intervals.joblib",
+    "interval_methods": [
+      "Residual Quantile",
+      "Quantile Regression",
+      "Conformal"
+    ]
+  }
+}

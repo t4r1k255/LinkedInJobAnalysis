@@ -1,20 +1,40 @@
-.idea/
 .venv/
 __pycache__/
 *.pyc
 .env
 .cache/
 .streamlit/cache/
+.ipynb_checkpoints/
 
+# IDE / OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Full raw data is not committed.
 data/
 *.xlsx
 *.xls
+
+# Large generated data/model artifacts.
+*.joblib
 *.parquet
 *.npy
-*.joblib
-*.zip
+*.pkl
 
-# Keep lightweight outputs if wanted
+# Avoid committing arbitrary archives.
+*.zip
+*.rar
+*.7z
+
+# Keep lightweight project outputs and registries.
+!outputs/
+!outputs/*.png
 !outputs/model_04_*.csv
 !outputs/model_04_*.json
-!outputs/*.png
+!outputs/outputs_manifest.csv
+!models/model_registry.json
+
+# Keep docs and source files.
+!docs/

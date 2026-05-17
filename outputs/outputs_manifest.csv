@@ -1,0 +1,34 @@
+file,module,description
+01_experience_distribution.png,analysis_01_market,Experience level distribution
+02_work_type_distribution.png,analysis_01_market,Work type distribution
+03_remote_distribution.png,analysis_01_market,Remote vs non-remote posting distribution
+04_top_states.png,analysis_01_market,Top states by job posting volume
+05_salary_by_experience.png,analysis_01_market,Salary by experience level
+06_remote_by_company_size.png,analysis_01_market,Remote rate by company size
+07_top_skills.png,analysis_02_skills,Top requested skills
+08_top_industries.png,analysis_02_skills,Top industries
+09_skill_by_experience.png,analysis_02_skills,Skill demand by experience level
+10_highest_paying_skills.png,analysis_02_skills,Highest paying skills
+11_skill_industry_heatmap.png,analysis_02_skills,Skill by industry heatmap
+68_salary_gap_distribution.png,analysis_13_salary_gap,Salary range width distribution
+69_salary_gap_by_industry.png,analysis_13_salary_gap,Salary negotiation gap by industry
+70_salary_gap_by_exp.png,analysis_13_salary_gap,Salary negotiation gap by experience level
+71_salary_band_vs_gap.png,analysis_13_salary_gap,Salary level vs salary gap
+72_salary_gap_negotiation_map.png,analysis_13_salary_gap,Industry by experience salary gap map
+73_diag_train_vs_oof.png,model_03_diagnostics,Train vs OOF diagnostic comparison
+74_diag_learning_curve.png,model_03_diagnostics,Learning curve diagnostic
+75_diag_residual_by_range.png,model_03_diagnostics,Residual analysis by salary range
+76_diag_error_distribution.png,model_03_diagnostics,Prediction error distribution
+77_diag_fold_stability.png,model_03_diagnostics,Fold stability diagnostic
+78_model04_stacking_comparison.png,model_04_stacking_intervals,Model 03 vs Model 04 comparison
+79_model04_ridge_coefficients.png,model_04_stacking_intervals,Ridge stacking coefficients
+80_model04_interval_methods.png,model_04_stacking_intervals,Prediction interval method comparison
+81_model04_prediction_intervals_sample.png,model_04_stacking_intervals,Example prediction intervals
+82_model04_calibration_deciles.png,model_04_stacking_intervals,Calibration by prediction decile
+83_model04_error_by_experience.png,model_04_stacking_intervals,Model 04 error by experience level
+84_model04_error_by_industry.png,model_04_stacking_intervals,Model 04 error by industry
+85_model04_error_by_state.png,model_04_stacking_intervals,Model 04 error by state
+86_model04_error_by_salary_band.png,model_04_stacking_intervals,Model 04 error by salary band
+87_model04_error_by_title_family.png,model_04_stacking_intervals,Model 04 error by title family
+88_model04_bias_by_industry.png,model_04_stacking_intervals,Model 04 bias by industry
+89_model04_top_error_titles.png,model_04_stacking_intervals,Highest-error title groups
