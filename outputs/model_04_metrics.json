@@ -1,0 +1,72 @@
+{
+  "model03_weighted_oof": {
+    "rmse": 25277.767088620854,
+    "mae": 16036.086473841104,
+    "r2": 0.7559938863920173,
+    "mape": 17.55471895258795
+  },
+  "model04_ridge_oof": {
+    "rmse": 25106.46733741782,
+    "mae": 15928.851801827397,
+    "r2": 0.7592897914138911,
+    "mape": 17.46294705996434
+  },
+  "ridge_alpha": 5.428675439323859,
+  "ridge_coefficients": [
+    {
+      "feature": "LightGBM",
+      "coefficient": 0.39418507918535717
+    },
+    {
+      "feature": "base_mean",
+      "coefficient": 0.17957387101089078
+    },
+    {
+      "feature": "base_max",
+      "coefficient": 0.16137010841620178
+    },
+    {
+      "feature": "base_min",
+      "coefficient": 0.14640890099846032
+    },
+    {
+      "feature": "XGBoost",
+      "coefficient": 0.09704734568311706
+    },
+    {
+      "feature": "CatBoost",
+      "coefficient": 0.04748918817136219
+    },
+    {
+      "feature": "base_std",
+      "coefficient": 0.01679791526224754
+    }
+  ],
+  "interval_scores": [
+    {
+      "method": "Residual Quantile",
+      "coverage_pct": 90.14427846594292,
+      "avg_width": 78241.0737004218,
+      "median_width": 78285.83953547668,
+      "winkler_score": 118757.98108869437
+    },
+    {
+      "method": "Quantile Regression",
+      "coverage_pct": 90.14144391847842,
+      "avg_width": 70773.04564247771,
+      "median_width": 74979.14073302352,
+      "winkler_score": 99855.62991316698
+    },
+    {
+      "method": "Conformal",
+      "coverage_pct": 89.40729612517362,
+      "avg_width": 73252.18640627885,
+      "median_width": 73465.72083046037,
+      "winkler_score": 121861.19884156414
+    }
+  ],
+  "files": {
+    "model": "models\\best_salary_model_04_stacking_intervals.joblib",
+    "predictions": "outputs\\model_04_oof_predictions_intervals.parquet"
+  }
+}

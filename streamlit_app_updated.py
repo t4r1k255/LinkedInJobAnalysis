@@ -1,12 +1,13 @@
 
 """
-streamlit_app.py — Rebuilt LinkedIn Job Analysis Dashboard
+streamlit_app.py — Local LinkedIn Job Analysis Dashboard v6
 
 Run:
     streamlit run streamlit_app.py
 
 Design goals:
-- Basic / Advanced / Research view modes
+- Local-first dashboard, no cloud/toml/bat requirement
+- Basic / Advanced view modes
 - Stakeholder-specific decision-support pages
 - Salary prediction with role-context builder, similar postings, reliability signal, scenario comparison
 - Model 04 metrics / interval / error-analysis integration when CSV/JSON outputs exist
@@ -49,6 +50,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
 
 st.markdown(
     """
@@ -175,6 +177,35 @@ CITY_OPTIONS = [
     "Austin", "Dallas", "Atlanta", "Washington", "Denver", "Phoenix", "Remote",
     "Other / custom city",
 ]
+
+STATE_CITY_MAP = {
+    "CA": ["San Francisco", "Los Angeles", "San Diego", "San Jose", "Sacramento"],
+    "NY": ["New York", "Buffalo", "Rochester", "Albany"],
+    "TX": ["Austin", "Dallas", "Houston", "San Antonio"],
+    "WA": ["Seattle", "Bellevue", "Redmond", "Spokane"],
+    "MA": ["Boston", "Cambridge", "Worcester"],
+    "IL": ["Chicago", "Springfield"],
+    "FL": ["Miami", "Orlando", "Tampa", "Jacksonville"],
+    "VA": ["Arlington", "Richmond", "Alexandria"],
+    "GA": ["Atlanta", "Savannah"],
+    "CO": ["Denver", "Boulder"],
+    "NC": ["Charlotte", "Raleigh", "Durham"],
+    "NJ": ["Jersey City", "Newark"],
+    "OH": ["Columbus", "Cleveland", "Cincinnati"],
+    "PA": ["Philadelphia", "Pittsburgh"],
+    "AZ": ["Phoenix", "Scottsdale"],
+    "MN": ["Minneapolis", "Saint Paul"],
+    "MI": ["Detroit", "Ann Arbor"],
+    "OR": ["Portland"],
+    "MD": ["Baltimore", "Bethesda"],
+    "CT": ["Hartford", "Stamford"],
+}
+
+def city_options_for_state(state: str) -> List[str]:
+    base = STATE_CITY_MAP.get(state, [])
+    # Remote and custom are always available because some postings are remote
+    # or have uncommon city names.
+    return base + ["Remote", "Other / custom city"]
 INDUSTRIES = [
     "Software Development", "IT Services and IT Consulting", "Financial Services",
     "Hospitals and Health Care", "Staffing and Recruiting",
@@ -277,6 +308,16 @@ def show_bar(df: pd.DataFrame, label_col: str, value_col: str, sort_desc=True, t
     st.bar_chart(temp.set_index(label_col)[value_col])
 
 
+def friendly_error(context: str, exc: Exception | None = None):
+    """Show a clean error without exposing local Windows paths."""
+    st.error(f"{context}. Please check the required local files and try again.")
+    if exc is not None:
+        with st.expander("Technical hint", expanded=False):
+            msg = str(exc)
+            msg = re.sub(r"[A-Za-z]:\\[^\n\r]+", "[local path hidden]", msg)
+            st.code(msg[:1200])
+
+
 def chart_help(what: str, how: str, warning: str | None = None):
     with st.expander("How to read this", expanded=False):
         st.markdown(f"**What this shows** — {what}")
@@ -292,19 +333,29 @@ def metric_glossary(items: Dict[str, str], expanded=False):
 
 
 def page_explainer(page_purpose: str, questions: List[str], key_metrics: List[str], how_to_use: str, limitations: str):
-    tabs = st.tabs(["Page purpose", "Decision questions", "Key metrics", "How to use", "Limitations"])
-    with tabs[0]:
-        st.write(page_purpose)
-    with tabs[1]:
-        for q in questions:
-            st.markdown(f"- {q}")
-    with tabs[2]:
-        for m in key_metrics:
-            st.markdown(f"- {m}")
-    with tabs[3]:
-        st.write(how_to_use)
-    with tabs[4]:
-        st.write(limitations)
+    """Compact page guide.
+
+    Earlier versions used top-level tabs. That made the page look like the
+    explanation changed, while the actual content stayed almost the same.
+    This compact guide keeps the explanation available without dominating
+    the page. The actual page body below now changes more clearly by view mode.
+    """
+    with st.expander("Page guide / interpretation notes", expanded=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Purpose**")
+            st.write(page_purpose)
+            st.markdown("**Decision questions**")
+            for q in questions:
+                st.markdown(f"- {q}")
+        with col2:
+            st.markdown("**Key metrics**")
+            for m in key_metrics:
+                st.markdown(f"- {m}")
+            st.markdown("**How to use**")
+            st.write(how_to_use)
+            st.markdown("**Limitations**")
+            st.write(limitations)
 
 
 def use_this_insight(points: List[str]):
@@ -446,23 +497,41 @@ def data_quality_summary() -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def load_job_skills_merged() -> pd.DataFrame:
+    """Load job-skill mappings robustly across slightly different Kaggle schemas.
+
+    Fixes the earlier KeyError: 'skill_name' caused by pandas suffixing
+    skill_name_x / skill_name_y after merging job_skills with skills.
+    """
     js = safe_read_csv_existing(DATA / "job_skills.csv", low_memory=False)
     sk = safe_read_csv_existing(DATA / "skills.csv", low_memory=False)
     if js.empty:
         return pd.DataFrame()
 
+    js = js.copy()
+    key_col = None
     if "skill_abr" in js.columns:
-        js["skill_name"] = js["skill_abr"].astype(str)
+        key_col = "skill_abr"
     elif "skill_id" in js.columns:
-        js["skill_name"] = js["skill_id"].astype(str)
+        key_col = "skill_id"
 
-    if not sk.empty:
+    # Start with a fallback skill_name from the mapping table itself.
+    if "skill_name" not in js.columns:
+        if key_col:
+            js["skill_name"] = js[key_col].astype(str)
+        else:
+            js["skill_name"] = "Unknown skill"
+
+    if not sk.empty and key_col and key_col in sk.columns:
         name_col = next((c for c in ["skill_name", "name", "skill_abr"] if c in sk.columns), None)
-        key_col = "skill_abr" if "skill_abr" in js.columns and "skill_abr" in sk.columns else ("skill_id" if "skill_id" in js.columns and "skill_id" in sk.columns else None)
-        if key_col and name_col:
-            merged = js.merge(sk[[key_col, name_col]], on=key_col, how="left")
-            merged["skill_name"] = merged[name_col].fillna(merged["skill_name"])
+        if name_col:
+            base = js.drop(columns=["skill_name"], errors="ignore")
+            lookup = sk[[key_col, name_col]].drop_duplicates(subset=[key_col]).copy()
+            lookup = lookup.rename(columns={name_col: "_skill_label"})
+            merged = base.merge(lookup, on=key_col, how="left")
+            merged["skill_name"] = merged["_skill_label"].fillna(merged[key_col].astype(str))
+            merged = merged.drop(columns=["_skill_label"], errors="ignore")
             return merged
+
     return js
 
 
@@ -478,7 +547,7 @@ def compute_skill_demand(top_n=20) -> pd.DataFrame:
 def compute_skill_salary_premium(top_n=15) -> pd.DataFrame:
     market = load_market_data()
     skills = load_job_skills_merged()
-    if market.empty or skills.empty or "job_id" not in market.columns or "job_id" not in skills.columns:
+    if market.empty or skills.empty or "job_id" not in market.columns or "job_id" not in skills.columns or "skill_name" not in skills.columns:
         return pd.DataFrame()
     sal = market.loc[market["salary_usable"], ["job_id", "normalized_salary"]].copy()
     merged = skills[["job_id", "skill_name"]].merge(sal, on="job_id", how="inner")
@@ -989,14 +1058,19 @@ with st.sidebar:
         ],
     )
 
-    view_mode = st.radio("View mode", ["Basic", "Advanced", "Research"], index=1)
+    view_mode = st.radio("View mode", ["Basic", "Advanced"], index=0)
     BASIC = view_mode == "Basic"
-    ADVANCED = view_mode in {"Advanced", "Research"}
-    RESEARCH = view_mode == "Research"
+    ADVANCED = view_mode == "Advanced"
+    # Research is now a separate page, not a third global view mode.
+    RESEARCH = page == "🔬 Researcher / ML Evaluation"
 
     st.markdown("---")
     st.caption("Models: XGBoost · LightGBM · CatBoost · Model 04 Ridge Stacking")
     st.caption("Best OOF R² ≈ 0.759 (Model 04)")
+    if view_mode == "Basic":
+        st.caption("Basic mode hides most raw tables and technical detail.")
+    else:
+        st.caption("Advanced mode shows tables, error analysis, and interpretation detail.")
 
 
 # =============================================================================
@@ -1019,13 +1093,20 @@ if page == "🏠 Home":
         "soft",
     )
 
+    box(
+        "<b>Local-first usage</b><br>"
+        "This version is designed to run locally after downloading the project files. "
+        "It does not require Streamlit Cloud, .toml configuration, or .bat launcher files.",
+        "green",
+    )
+
     a, b, c = st.columns(3)
     with a:
         st.markdown('<div class="persona-card"><b>Basic mode</b><br>Short explanations, fewer technical details, and decision-oriented reading.</div>', unsafe_allow_html=True)
     with b:
         st.markdown('<div class="persona-card"><b>Advanced mode</b><br>Market ranges, comparison tables, and more detailed analysis.</div>', unsafe_allow_html=True)
     with c:
-        st.markdown('<div class="persona-card"><b>Research mode</b><br>OOF metrics, intervals, diagnostics, SHAP-style interpretation, and error analysis.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="persona-card"><b>Researcher page</b><br>OOF metrics, intervals, diagnostics, and segment error analysis are collected in the dedicated Researcher / ML Evaluation page.</div>', unsafe_allow_html=True)
 
     section("Dataset quality snapshot")
     show_df(data_quality_summary())
@@ -1106,10 +1187,27 @@ elif page == "👤 Job Seeker":
                 industry = st.selectbox("Primary industry", INDUSTRIES, index=0)
 
             with col_b:
-                state = st.selectbox("State / region", US_STATES, index=0)
-                city_choice = st.selectbox("City", CITY_OPTIONS, index=0)
-                custom_city = st.text_input("Custom city", value="", disabled=(city_choice != "Other / custom city"))
-                city = custom_city.strip() if city_choice == "Other / custom city" and custom_city.strip() else city_choice
+                state = st.selectbox(
+                    "State / region",
+                    US_STATES,
+                    index=0,
+                    help="State is the broader regional salary signal. It is usually more stable than city.",
+                )
+                city_choices = city_options_for_state(state)
+                city_choice = st.selectbox(
+                    "City / metro area",
+                    city_choices,
+                    index=0,
+                    help="City is a more local signal inside the selected state. Choose custom only if the city is not listed.",
+                )
+                if city_choice == "Other / custom city":
+                    custom_city = st.text_input("Custom city", value="", placeholder="Type the city name here")
+                    city = custom_city.strip() if custom_city.strip() else "Unknown"
+                    if city == "Unknown":
+                        st.caption("Custom city is empty, so the model will use Unknown as the city signal.")
+                else:
+                    st.text_input("Custom city", value="", disabled=True, help="Enabled only when City / metro area is set to Other / custom city.")
+                    city = city_choice
                 company_size = st.selectbox("Company size", COMPANY_SIZES, index=5)
                 is_remote = st.toggle("Remote role", value=False)
 
@@ -1218,7 +1316,13 @@ elif page == "👤 Job Seeker":
                     }
                     st.session_state.pop("salary_prediction_error", None)
                 except Exception as exc:
-                    st.session_state["salary_prediction_error"] = str(exc)
+                    msg = str(exc)
+                    msg = re.sub(r"[A-Za-z]:\\[^\n\r]+", "[local path hidden]", msg)
+                    st.session_state["salary_prediction_error"] = (
+                        "Salary prediction could not be completed. "
+                        "Please check model files, selected inputs, and local data files. "
+                        f"Technical hint: {msg[:500]}"
+                    )
 
     with right:
         section("Prediction result")
@@ -1408,7 +1512,10 @@ elif page == "🏢 HR / Recruiting":
                 avg_competition=("competition_score", "mean"),
             ).reset_index()
             tf = tf[tf["postings"] >= 20].sort_values("median_salary", ascending=False)
-            show_df(tf.head(15))
+            if ADVANCED:
+                show_df(tf.head(15))
+            else:
+                box("Basic reading: compare the salary bars first. Open Advanced mode if you want the table behind the chart.", "soft")
             show_bar(tf, "title_family", "median_salary", top_n=12)
             chart_help(
                 "This compares median salary across title families under the current filters.",
@@ -1417,7 +1524,8 @@ elif page == "🏢 HR / Recruiting":
 
         section("Benefit package benchmark")
         ben = compute_benefit_summary()
-        show_df(ben, "Benefit summary could not be built.")
+        if ADVANCED:
+            show_df(ben, "Benefit summary could not be built.")
         if not ben.empty:
             show_bar(ben, "benefit_bucket", "median_salary", sort_desc=False)
             chart_help(
@@ -1435,9 +1543,11 @@ elif page == "🏢 HR / Recruiting":
                 competition=("competition_score", "mean"),
             ).reset_index()
             comp = comp[comp["postings"] >= 20].sort_values("competition", ascending=False)
-            show_df(comp.head(12))
             if ADVANCED:
+                show_df(comp.head(12))
                 show_bar(comp, "title_family", "competition", top_n=12)
+            else:
+                box("Basic reading: competition is summarized as applications per view. Use Advanced mode to see the detailed table and chart.", "soft")
                 chart_help(
                     "This uses applications / views as a competition-intensity score.",
                     "Higher bars mean more applications per view on average.",
@@ -1472,13 +1582,15 @@ elif page == "🎓 Education / Curriculum Planner":
 
     section("Most frequent skills")
     demand = compute_skill_demand(20)
-    show_df(demand)
+    if ADVANCED:
+        show_df(demand)
     if not demand.empty:
         show_bar(demand, "skill_name", "posting_count", top_n=15)
 
     section("Skills associated with higher salaries")
     premium = compute_skill_salary_premium(15)
-    show_df(premium)
+    if ADVANCED:
+        show_df(premium)
     if not premium.empty:
         show_bar(premium.rename(columns={"premium_vs_overall": "premium"}), "skill_name", "premium", top_n=12)
         chart_help(
@@ -1489,7 +1601,8 @@ elif page == "🎓 Education / Curriculum Planner":
 
     section("Career ladder")
     ladder = compute_career_ladder()
-    show_df(ladder)
+    if ADVANCED:
+        show_df(ladder)
     if not ladder.empty:
         show_bar(ladder, "formatted_experience_level", "median_salary", sort_desc=False)
 
@@ -1524,7 +1637,8 @@ elif page == "📈 Investor / Market Analyst":
     title_stats = compute_title_family_stats(min_count=100)
 
     section("Industry hiring volume")
-    show_df(industry.head(15))
+    if ADVANCED:
+        show_df(industry.head(15))
     if not industry.empty:
         show_bar(industry, "primary_industry", "postings", top_n=12)
 
@@ -1533,7 +1647,8 @@ elif page == "📈 Investor / Market Analyst":
         show_bar(industry.sort_values("median_salary", ascending=False), "primary_industry", "median_salary", top_n=12)
 
     section("Geographic salary snapshot")
-    show_df(state.head(15))
+    if ADVANCED:
+        show_df(state.head(15))
     if not state.empty:
         show_bar(state.head(12), "state", "median_salary", top_n=12)
 
@@ -1573,12 +1688,14 @@ elif page == "🏛️ Policy Maker / Labor Market Analyst":
     remote = compute_remote_summary()
 
     section("State salary comparison")
-    show_df(state.head(20))
+    if ADVANCED:
+        show_df(state.head(20))
     if not state.empty:
         show_bar(state.head(15), "state", "median_salary", top_n=15)
 
     section("Remote access snapshot")
-    show_df(remote)
+    if ADVANCED:
+        show_df(remote)
     if not remote.empty:
         show_bar(remote, "remote_label", "median_salary", sort_desc=False)
         chart_help(
@@ -1591,6 +1708,32 @@ elif page == "🏛️ Policy Maker / Labor Market Analyst":
         section("States with higher remote share")
         state_rate = state[["state", "remote_rate"]].sort_values("remote_rate", ascending=False).head(15)
         show_bar(state_rate, "state", "remote_rate", top_n=15)
+
+    # Salary transparency / negotiation-gap outputs from analysis_13, if available.
+    gap_files = [
+        ("68_salary_gap_distribution.png", "Salary gap distribution"),
+        ("69_salary_gap_by_industry.png", "Negotiation gap by industry"),
+        ("70_salary_gap_by_exp.png", "Negotiation gap by experience level"),
+        ("71_salary_band_vs_gap.png", "Salary band vs negotiation gap"),
+        ("72_salary_gap_negotiation_map.png", "Industry × experience negotiation map"),
+    ]
+    available_gap = [(f, title) for f, title in gap_files if (OUT / f).exists()]
+    if available_gap:
+        section("Salary transparency / negotiation-gap signals")
+        box(
+            "<b>Policy interpretation</b><br>"
+            "Salary gap means max_salary - min_salary in postings with salary ranges. "
+            "Wider gaps can suggest more negotiation room or less precise pay transparency.",
+            "soft",
+        )
+        for filename, title in available_gap:
+            st.markdown(f"**{title}**")
+            st.image(str(OUT / filename), width="stretch")
+            chart_help(
+                "This chart comes from the salary-gap analysis module.",
+                "Use it to inspect where posted salary ranges are wider.",
+                "Wider posted salary ranges do not automatically prove unfairness; they are transparency / negotiation signals.",
+            )
 
     use_this_insight([
         "Use state salary levels together with remote-rate differences to discuss opportunity distribution.",
