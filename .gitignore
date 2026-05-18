@@ -12,29 +12,27 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Full raw data is not committed.
+# Full raw data is not committed
 data/
 *.xlsx
 *.xls
 
-# Large generated data/model artifacts.
+# Large generated data/model artifacts
 *.joblib
 *.parquet
 *.npy
 *.pkl
 
-# Avoid committing arbitrary archives.
+# Archives
 *.zip
 *.rar
 *.7z
 
-# Keep lightweight project outputs and registries.
+# Keep lightweight project outputs and registries
 !outputs/
 !outputs/*.png
 !outputs/model_04_*.csv
 !outputs/model_04_*.json
 !outputs/outputs_manifest.csv
 !models/model_registry.json
-
-# Keep docs and source files.
 !docs/
