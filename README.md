@@ -27,6 +27,7 @@ The project covers labor-market exploration, skill demand, salary patterns, comp
 - [Running Order](#running-order)
 - [Key Findings](#key-findings)
 - [Limitations](#limitations)
+- [Türkçe Özet](#türkçe-özet)
 - [License](#license)
 
 ---
@@ -588,6 +589,23 @@ A selection of high-level findings:
 - High-salary roles are naturally harder to predict due to bonuses, equity, leadership scope, and company-specific compensation policy.
 - The dataset is mostly US-centered and reflects a specific historical snapshot.
 - Model evaluation is based on cross-validation / out-of-fold predictions, not on an external holdout dataset.
+
+---
+
+## Türkçe Özet
+
+Kaggle 2024 LinkedIn Job Postings veri setindeki **123.849 iş ilanı** üzerinde yerelde çalışan bir veri analizi ve makine öğrenmesi projesi.
+
+**Neleri kapsıyor?**
+
+- **13 analiz modülü** ve 80'den fazla çıktı: iş piyasası yapısı, beceri talebi, maaş örüntüleri, şirket ve coğrafya farkları, yan haklar, rekabet, uzaktan çalışma ve maaş aralığı analizi
+- **Maaş tahmini:** XGBoost, LightGBM ve CatBoost modelleri; Optuna ile hiperparametre ayarı, sızıntıya karşı korumalı çapraz doğrulama, OOF ensemble ve Ridge stacking
+- **Metin özellikleri:** iş başlığı ve açıklamalarından TF-IDF + SVD; maaş bilgisi içeren metinler sızıntıyı önlemek için temizlenir
+- **En iyi model (Model 04):** R² ≈ **0,759** · RMSE ≈ **25.106 $** · MAE ≈ **15.929 $**
+- **Açıklanabilirlik ve belirsizlik:** SHAP grafikleri; artık dağılımı, kantil regresyon ve conformal yöntemlerle tahmin aralıkları
+- **Streamlit paneli:** 6 farklı paydaş bakış açısı, Temel / Gelişmiş modlar
+
+**Nasıl çalıştırılır?** Veri seti boyutu nedeniyle repoya dahil değildir. [Kaggle'dan](https://www.kaggle.com/datasets/arshkon/linkedin-job-postings) indirip CSV dosyalarını proje kökündeki `data/` klasörüne koy, ardından yukarıdaki [Setup](#setup) ve [Running Order](#running-order) bölümlerindeki adımları izle.
 
 ---
 
